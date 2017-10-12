@@ -2880,7 +2880,7 @@ public class BLangParserListener extends BallerinaParserBaseListener {
             return;
         }
 
-        getWS(ctx);
+        this.pkgBuilder.attachStringTemplateLiteralWS(getWS(ctx));
     }
 
     /**
