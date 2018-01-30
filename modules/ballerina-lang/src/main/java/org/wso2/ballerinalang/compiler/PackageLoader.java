@@ -153,15 +153,15 @@ public class PackageLoader {
             if (pkgNode == null) {
                 return null;
             }
-            pSymbol = symbolEnter.definePackage(pkgNode, pkgId);
-            pkgNode.symbol = pSymbol;
+//            pSymbol = symbolEnter.definePackage(pkgNode, pkgId);
+//            pkgNode.symbol = pSymbol;
         } else {
             // This is a compiled package.
             // TODO Throw an error. Entry package cannot be a compiled package
             throw new RuntimeException("TODO Entry package cannot be a compiled package");
         }
 
-        packages.put(pkgId, pSymbol);
+//        packages.put(pkgId, pSymbol);
         return pkgNode;
     }
 

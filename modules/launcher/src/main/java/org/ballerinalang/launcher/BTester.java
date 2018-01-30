@@ -16,12 +16,15 @@
 
 package org.ballerinalang.launcher;
 
+import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.Token;
 import org.ballerinalang.model.values.BValue;
 import org.ballerinalang.util.codegen.Mnemonics;
 import org.ballerinalang.util.codegen.PackageInfo;
 import org.ballerinalang.util.codegen.ProgramFileReader;
 import org.ballerinalang.util.program.BLangFunctions;
 import org.wso2.ballerinalang.compiler.Compiler;
+import org.wso2.ballerinalang.compiler.parser.antlr4.BallerinaLexer;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
 import org.wso2.ballerinalang.compiler.util.CompilerOptions;
 import org.wso2.ballerinalang.programfile.ProgramFileWriter;
@@ -30,6 +33,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.List;
 
 import static org.ballerinalang.compiler.CompilerOptionName.COMPILER_PHASE;
 import static org.ballerinalang.compiler.CompilerOptionName.PRESERVE_WHITESPACE;
@@ -40,16 +44,25 @@ import static org.ballerinalang.compiler.CompilerOptionName.SOURCE_ROOT;
  */
 public class BTester {
 
+    public static final String STRING = "import foo.bar version 1.2.3 as ver1;";
     private static CompilerOptions options;
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws IOException {
+        ANTLRInputStream ais = new ANTLRInputStream(new ByteArrayInputStream(STRING.getBytes()));
+        BallerinaLexer lexer = new BallerinaLexer(ais);
+        List<? extends Token> allTokens = lexer.getAllTokens();
+        System.out.println(allTokens);
+
+    }
+
+    public static void mainx(String[] args) throws Exception {
         // -sorceroot == current directory
 
         CompilerContext context = new CompilerContext();
         options = CompilerOptions.getInstance(context);
-        options.put(SOURCE_ROOT, System.getProperty("user.dir") + "/bal-src");
+        options.put(SOURCE_ROOT, System.getProperty("user.dir"));
 //        options.put(SOURCE_ROOT, "./");
-        options.put(COMPILER_PHASE, "codeGen");
+        options.put(COMPILER_PHASE, "define");
         options.put(PRESERVE_WHITESPACE, "false");
 
         // How to set a custom diagnostic listener

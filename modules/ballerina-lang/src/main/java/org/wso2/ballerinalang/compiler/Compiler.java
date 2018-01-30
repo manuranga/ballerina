@@ -82,7 +82,7 @@ public class Compiler {
     }
 
     public void compile(String sourcePkg) {
-        BLangPackage builtInPackage = loadBuiltInPackage();
+//        BLangPackage builtInPackage = loadBuiltInPackage();
         if (this.stopCompilation(CompilerPhase.DEFINE)) {
             return;
         }
@@ -102,7 +102,7 @@ public class Compiler {
             return;
         }
         // TODO : Improve this.
-        desugar(builtInPackage);
+//        desugar(builtInPackage);
         pkgNode = desugar(pkgNode);
         if (this.stopCompilation(CompilerPhase.CODE_GEN)) {
             return;

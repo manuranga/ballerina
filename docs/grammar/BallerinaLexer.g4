@@ -114,6 +114,13 @@ AT          : '@' ;
 BACKTICK    : '`' ;
 RANGE       : '..' ;
 
+SemVar
+    : VERSION (WS|NEW_LINE)* PlainDecimalNumeral DOT PlainDecimalNumeral DOT PlainDecimalNumeral
+                                             (SUB AlphanumericVersionIdentifier)?
+                                             (ADD AlphanumericVersionIdentifier)?
+    | VERSION (WS|NEW_LINE)* PlainDecimalNumeral DOT PlainDecimalNumeral
+    ;
+
 // §3.10.1 Integer Literals
 IntegerLiteral
     :   DecimalIntegerLiteral
@@ -721,4 +728,13 @@ fragment
 StringTemplateValidCharSequence
     :   '{'
     |   '\\' ~'\\'
+    ;
+
+PlainDecimalNumeral
+    :   '0'
+    |   [1-9] [0-9]*
+    ;
+
+AlphanumericVersionIdentifier
+    :   [a-zA-Z0-9.]+
     ;

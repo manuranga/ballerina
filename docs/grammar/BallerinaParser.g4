@@ -24,7 +24,7 @@ packageName
     ;
 
 version
-    : (VERSION Identifier)
+    : SemVar
     ;
 
 importDeclaration
