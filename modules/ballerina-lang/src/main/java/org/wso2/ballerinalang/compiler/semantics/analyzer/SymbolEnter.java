@@ -86,6 +86,7 @@ import org.wso2.ballerinalang.compiler.tree.statements.BLangXMLNSStatement;
 import org.wso2.ballerinalang.compiler.tree.types.BLangUserDefinedType;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
 import org.wso2.ballerinalang.compiler.util.CompilerOptions;
+import org.wso2.ballerinalang.compiler.util.DependencyList;
 import org.wso2.ballerinalang.compiler.util.Name;
 import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.compiler.util.NodeUtils;
@@ -114,6 +115,8 @@ public class SymbolEnter extends BLangNodeVisitor {
 
     private static final CompilerContext.Key<SymbolEnter> SYMBOL_ENTER_KEY =
             new CompilerContext.Key<>();
+
+    private final DependencyList dependencyList;
 
     private PackageLoader pkgLoader;
     private SymbolTable symTable;
@@ -147,6 +150,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         this.names = Names.getInstance(context);
         this.symResolver = SymbolResolver.getInstance(context);
         this.dlog = DiagnosticLog.getInstance(context);
+        this.dependencyList = DependencyList.getInstance(context);
 
         this.rootPkgNode = (BLangPackage) TreeBuilder.createPackageNode();
         this.rootPkgNode.symbol = symTable.rootPkgSymbol;
@@ -286,8 +290,7 @@ public class SymbolEnter extends BLangNodeVisitor {
         if (pkgSymbol == null) {
             BLangPackage pkgNode = pkgLoader.loadPackageNode(pkgID);
             if (pkgNode == null) {
-                dlog.error(importPkgNode.pos, DiagnosticCode.PACKAGE_NOT_FOUND,
-                        importPkgNode.getQualifiedPackageName());
+                dependencyList.add(pkgID, importPkgNode, this.env.scope, pkgAlias, (BLangPackage) env.node);
                 return;
             } else {
                 pkgSymbol = pkgNode.symbol;
@@ -824,8 +827,8 @@ public class SymbolEnter extends BLangNodeVisitor {
         return assignmentStmt;
     }
 
-    private BLangExpressionStmt createInitFuncInvocationStmt(BLangImportPackage importPackage,
-                                                             BPackageSymbol pkgSymbol) {
+    public static BLangExpressionStmt createInitFuncInvocationStmt(BLangImportPackage importPackage,
+                                                            BPackageSymbol pkgSymbol) {
         BLangInvocation invocationNode = (BLangInvocation) TreeBuilder.createInvocationNode();
         invocationNode.pos = importPackage.pos;
         invocationNode.addWS(importPackage.getWS());
