@@ -30,6 +30,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.tree.BLangPackage;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
 import org.wso2.ballerinalang.compiler.util.CompilerOptions;
+import org.wso2.ballerinalang.compiler.util.DependencyList;
 import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.compiler.util.diagnotic.DiagnosticLog;
 import org.wso2.ballerinalang.programfile.ProgramFile;
@@ -50,6 +51,7 @@ public class Compiler {
     private CodeAnalyzer codeAnalyzer;
     private Desugar desugar;
     private CodeGenerator codeGenerator;
+    private DependencyList dependencyList;
 
     private CompilerPhase compilerPhase;
     private ProgramFile programFile;
@@ -77,6 +79,7 @@ public class Compiler {
         this.codeAnalyzer = CodeAnalyzer.getInstance(context);
         this.desugar = Desugar.getInstance(context);
         this.codeGenerator = CodeGenerator.getInstance(context);
+        this.dependencyList = DependencyList.getInstance(context);
 
         this.compilerPhase = getCompilerPhase();
     }
@@ -88,6 +91,8 @@ public class Compiler {
         }
 
         pkgNode = define(sourcePkg);
+
+        dependencyList.resolve();
         if (this.stopCompilation(CompilerPhase.TYPE_CHECK)) {
             return;
         }
