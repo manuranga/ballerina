@@ -41,7 +41,7 @@ public class WorkspaceUtils {
         names.add(new Name("."));
         // Registering custom PackageRepository to provide ballerina content without a file in file-system
         context.put(PackageRepository.class, new InMemoryPackageRepository(
-                new PackageID(names, new Name("0.0.0")),
+                new PackageID(orgName, names, new Name("0.0.0")),
                 "", fileName, source.getBytes(StandardCharsets.UTF_8)));
         return context;
     }

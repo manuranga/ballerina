@@ -76,7 +76,25 @@ public class BallerinaParserBaseListener implements BallerinaParserListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterDefinition(BallerinaParser.DefinitionContext ctx) { }
+    @Override
+    public void enterOrgName(BallerinaParser.OrgNameContext ctx) {
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * <p>The default implementation does nothing.</p>
+     */
+    @Override
+    public void exitOrgName(BallerinaParser.OrgNameContext ctx) {
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * <p>The default implementation does nothing.</p>
+     */
+    @Override public void enterDefinition(BallerinaParser.DefinitionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

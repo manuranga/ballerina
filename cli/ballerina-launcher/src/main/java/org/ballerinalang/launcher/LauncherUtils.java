@@ -23,7 +23,6 @@ import org.ballerinalang.compiler.CompilerPhase;
 import org.ballerinalang.config.ConfigRegistry;
 import org.ballerinalang.config.utils.ConfigFileParserException;
 import org.ballerinalang.connector.impl.ServerConnectorRegistry;
-import org.ballerinalang.logging.BLogManager;
 import org.ballerinalang.runtime.threadpool.ThreadPoolFactory;
 import org.ballerinalang.util.BLangConstants;
 import org.ballerinalang.util.codegen.ProgramFile;
@@ -50,7 +49,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 
 import static org.ballerinalang.compiler.CompilerOptionName.COMPILER_PHASE;
 import static org.ballerinalang.compiler.CompilerOptionName.PRESERVE_WHITESPACE;
@@ -68,7 +66,8 @@ public class LauncherUtils {
         String srcPathStr = sourcePath.toString();
         if (srcPathStr.endsWith(BLangConstants.BLANG_EXEC_FILE_SUFFIX)) {
             programFile = BLangProgramLoader.read(sourcePath);
-        } else if (Files.isDirectory(sourcePath) || srcPathStr.endsWith(BLangConstants.BLANG_SRC_FILE_SUFFIX)) {
+        } else if (Files.isDirectory(sourceRootPath.resolve("src").resolve(sourcePath))
+                || srcPathStr.endsWith(BLangConstants.BLANG_SRC_FILE_SUFFIX)) {
             programFile = compile(sourceRootPath, sourcePath);
         } else {
             throw new BallerinaException("Invalid Ballerina source path, it should either be a directory or a file " +
@@ -82,7 +81,7 @@ public class LauncherUtils {
 
         try {
             ConfigRegistry.getInstance().loadConfigurations();
-            ((BLogManager) LogManager.getLogManager()).loadUserProvidedLogConfiguration();
+//            ((BLogManager) LogManager.getLogManager()).loadUserProvidedLogConfiguration();
         } catch (ConfigFileParserException e) {
             throw new RuntimeException("failed to start ballerina runtime: " + e.getMessage(), e);
         }

@@ -131,7 +131,8 @@ public class BCompileUtil {
                             return new Name(part);
                         })
                         .collect(Collectors.toList());
-                PackageID pkgId = new PackageID(pkgNameComps, Names.DEFAULT_VERSION);
+                // TODO: orgname is null, fix it.
+                PackageID pkgId = new PackageID(null, pkgNameComps, Names.DEFAULT_VERSION);
                 effectiveSource = pkgId.getName().getValue();
             } else {
                 effectiveSource = packageName;

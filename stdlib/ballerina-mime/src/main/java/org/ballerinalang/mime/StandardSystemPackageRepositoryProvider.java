@@ -30,11 +30,11 @@ import org.ballerinalang.spi.SystemPackageRepositoryProvider;
 @JavaSPIService("org.ballerinalang.spi.SystemPackageRepositoryProvider")
 public class StandardSystemPackageRepositoryProvider implements SystemPackageRepositoryProvider {
 
-    private static final String JAR_SYSTEM_LIB_LOCATION = "/META-INF/natives/";
+    private static final String JAR_SYSTEM_LIB_LOCATION = "natives";
 
     @Override
     public PackageRepository loadRepository() {
-        return new ClasspathPackageRepository(this.getClass(), JAR_SYSTEM_LIB_LOCATION);
+        return new ClasspathPackageRepository(JAR_SYSTEM_LIB_LOCATION, this.getClass());
     }
 
 }
