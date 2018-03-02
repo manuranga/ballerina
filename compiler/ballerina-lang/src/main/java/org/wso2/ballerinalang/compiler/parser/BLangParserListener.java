@@ -51,7 +51,6 @@ public class BLangParserListener extends BallerinaParserBaseListener {
     private BDiagnosticSource diagnosticSrc;
 
     private List<String> pkgNameComps;
-    private String pkgVersion;
 
     BLangParserListener(CompilerContext context, CompilationUnitNode compUnit,
                         BDiagnosticSource diagnosticSource) {
@@ -107,7 +106,7 @@ public class BLangParserListener extends BallerinaParserBaseListener {
             return;
         }
 
-        this.pkgBuilder.setPackageDeclaration(getCurrentPos(ctx), getWS(ctx), this.pkgNameComps, this.pkgVersion);
+        this.pkgBuilder.setPackageDeclaration(getCurrentPos(ctx), getWS(ctx), this.pkgNameComps);
     }
 
     /**
@@ -121,7 +120,6 @@ public class BLangParserListener extends BallerinaParserBaseListener {
 
         this.pkgNameComps = new ArrayList<>();
         ctx.Identifier().forEach(e -> pkgNameComps.add(e.getText()));
-        this.pkgVersion = null;
     }
 
     /**
@@ -135,12 +133,13 @@ public class BLangParserListener extends BallerinaParserBaseListener {
 
         String alias = ctx.Identifier() != null ? ctx.Identifier().getText() : null;
         BallerinaParser.OrgNameContext orgNameContext = ctx.orgName();
+        String version = ctx.version() == null ? "n/a" : ctx.version().Semvar().getText();
         if (orgNameContext == null) {
-            this.pkgBuilder.addImportPackageDeclaration(getCurrentPos(ctx), getWS(ctx),
-                    null, this.pkgNameComps, this.pkgVersion, alias);
+            this.pkgBuilder.addImportPackageDeclarationWithoutOrgName(getCurrentPos(ctx), getWS(ctx),
+                    this.pkgNameComps, version, alias);
         } else {
-            this.pkgBuilder.addImportPackageDeclaration(getCurrentPos(ctx), getWS(ctx),
-                    orgNameContext.getText(), this.pkgNameComps, this.pkgVersion, alias);
+            this.pkgBuilder.addImportPackageDeclarationWithOrgName(getCurrentPos(ctx), getWS(ctx),
+                    orgNameContext.getText(), this.pkgNameComps, version, alias);
         }
     }
 

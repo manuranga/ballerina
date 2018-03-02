@@ -418,7 +418,7 @@ public class BLangPackageBuilder {
         BLangStruct structNode = (BLangStruct) this.structStack.peek();
         structNode.addWS(wsForSemiColon);
         BLangVariable field = addVar(pos, ws, identifier, exprAvailable, annotCount);
-        
+
         if (!isPrivate) {
             field.flagSet.add(Flag.PUBLIC);
         }
@@ -924,26 +924,44 @@ public class BLangPackageBuilder {
         invokableNode.setBody(block);
     }
 
-    public void setPackageDeclaration(DiagnosticPos pos, Set<Whitespace> ws, List<String> nameComps, String version) {
+    public void setPackageDeclaration(DiagnosticPos pos, Set<Whitespace> ws, List<String> nameComps) {
         List<BLangIdentifier> pkgNameComps = new ArrayList<>();
         nameComps.forEach(e -> pkgNameComps.add((BLangIdentifier) this.createIdentifier(e)));
-        BLangIdentifier versionNode = (BLangIdentifier) this.createIdentifier(version);
+        BLangIdentifier versionNode = (BLangIdentifier) this.createIdentifier("");
 
         BLangPackageDeclaration pkgDcl = (BLangPackageDeclaration) TreeBuilder.createPackageDeclarationNode();
         pkgDcl.pos = pos;
-        // TODO: orgname is null, fix it.
+        // TODO: orgName is null, read it from TOML?
         pkgDcl.addWS(ws);
         pkgDcl.pkgNameComps = pkgNameComps;
         pkgDcl.version = versionNode;
         this.compUnit.addTopLevelNode(pkgDcl);
     }
 
-    public void addImportPackageDeclaration(DiagnosticPos pos,
-                                            Set<Whitespace> ws,
-                                            String orgName,
-                                            List<String> nameComps,
-                                            String version,
-                                            String alias) {
+    public void addImportPackageDeclarationWithOrgName(DiagnosticPos pos,
+                                                       Set<Whitespace> ws,
+                                                       String orgName,
+                                                       List<String> nameComps,
+                                                       String version,
+                                                       String alias) {
+        BLangIdentifier orgNameNode = (BLangIdentifier) this.createIdentifier(orgName);
+        addImportPackageDeclaration2(pos, ws, orgNameNode, nameComps, version, alias);
+    }
+
+    public void addImportPackageDeclarationWithoutOrgName(DiagnosticPos pos,
+                                                          Set<Whitespace> ws,
+                                                          List<String> nameComps,
+                                                          String version,
+                                                          String alias) {
+        addImportPackageDeclaration2(pos, ws, null, nameComps, version, alias);
+    }
+
+    private void addImportPackageDeclaration2(DiagnosticPos pos,
+                                              Set<Whitespace> ws,
+                                              BLangIdentifier orgName,
+                                              List<String> nameComps,
+                                              String version,
+                                              String alias) {
 
         List<BLangIdentifier> pkgNameComps = new ArrayList<>();
         nameComps.forEach(e -> pkgNameComps.add((BLangIdentifier) this.createIdentifier(e)));
@@ -957,7 +975,7 @@ public class BLangPackageBuilder {
         importDcl.addWS(ws);
         importDcl.pkgNameComps = pkgNameComps;
         importDcl.version = versionNode;
-        importDcl.orgName = (BLangIdentifier) this.createIdentifier(orgName);
+        importDcl.orgName = orgName;
         importDcl.alias = aliasNode;
         this.compUnit.addTopLevelNode(importDcl);
         if (this.imports.contains(importDcl)) {

@@ -51,9 +51,11 @@ public class NodeUtils {
     public static PackageID getPackageID(Names names, BLangIdentifier orgNameNode,
                                          List<BLangIdentifier> pkgNameComps, BLangIdentifier versionNode) {
         List<Name> nameList = pkgNameComps.stream().map(names::fromIdNode).collect(Collectors.toList());
-        Name orgName = null;
+        Name orgName;
         if (orgNameNode != null) {
             orgName = names.fromIdNode(orgNameNode);
+        } else {
+            orgName = Names.ANON_ORG;
         }
         Name version = names.fromIdNode(versionNode);
         if (version == Names.EMPTY) {

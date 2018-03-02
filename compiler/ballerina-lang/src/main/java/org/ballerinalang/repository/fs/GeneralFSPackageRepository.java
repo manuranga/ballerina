@@ -66,8 +66,10 @@ public class GeneralFSPackageRepository implements PackageRepository {
         Path path;
         if (orgName == null) {
             path = this.generatePathNew(pkgID);
-        } else {
+        } else if (orgName.getValue().equals("ballerina") || orgName.equals(pkgID.getOrgName())) {
             path = this.generatePath(pkgID);
+        } else {
+            return null;
         }
 
         if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
@@ -175,8 +177,9 @@ public class GeneralFSPackageRepository implements PackageRepository {
     }
 
     private Path generatePathNew(PackageID pkgID) {
-        Path pkgDirPath = this.basePath.resolve(pkgID.getOrgName().value);
-        return pkgDirPath.resolve(createPackageNameWithDots(pkgID));
+        Path orgDirPath = this.basePath.resolve(pkgID.getOrgName().value);
+        Path pkgDirPath = orgDirPath.resolve(createPackageNameWithDots(pkgID));
+        return pkgDirPath.resolve(pkgID.getPackageVersion().value);
     }
 
     private String createPackageNameWithDots(PackageID pkgID) {

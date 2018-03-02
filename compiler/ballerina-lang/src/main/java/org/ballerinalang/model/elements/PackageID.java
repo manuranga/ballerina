@@ -88,12 +88,13 @@ public class PackageID {
         }
 
         PackageID packageID = (PackageID) o;
-        return name.equals(packageID.name) && version.equals(packageID.version);
+        return orgName.equals(packageID.orgName) && name.equals(packageID.name) && version.equals(packageID.version);
     }
 
     @Override
     public int hashCode() {
-        int result = nameComps.hashCode();
+        int result = orgName.hashCode();
+        result = 31 * result + name.hashCode();
         result = 31 * result + version.hashCode();
         return result;
     }
@@ -104,7 +105,8 @@ public class PackageID {
             return this.name.value;
         }
 
-        return this.name + "[" + this.version + "]";
+        String orgNameStr = this.orgName == Names.ANON_ORG ? "" : this.orgName + "/";
+        return orgNameStr + this.name + "[" + this.version + "]";
     }
 
     public Name getOrgName() {

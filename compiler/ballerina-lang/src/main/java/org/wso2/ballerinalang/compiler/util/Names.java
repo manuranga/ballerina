@@ -44,7 +44,7 @@ public class Names {
     public static final Name INIT_ACTION_SUFFIX = new Name("<init>");
     public static final Name CONNECTOR = new Name("connector");
     // TODO remove when current project name is read from manifest
-    public static final Name ANON_ORG = new Name("$anon");
+    public static final Name ANON_ORG = new Name("/$anon/");
 
     public CompilerContext context;
 

@@ -275,7 +275,7 @@ public class SymbolEnter extends BLangNodeVisitor {
 
         // Create import package symbol
         Name orgName;
-        if (importPkgNode.orgName.value == null) {
+        if (importPkgNode.orgName == null) {
             // means it's in 'import <pkg-name>' style
             orgName = Names.ANON_ORG;
         } else {

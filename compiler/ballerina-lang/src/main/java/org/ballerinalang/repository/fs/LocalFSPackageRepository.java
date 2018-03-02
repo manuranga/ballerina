@@ -32,7 +32,7 @@ public class LocalFSPackageRepository extends GeneralFSPackageRepository {
         super(Paths.get(basePath));
     }
 
-    public LocalFSPackageRepository(String basePath, String orgName) {
-        super(Paths.get(basePath), new Name(orgName));
+    public LocalFSPackageRepository(String basePath, Name orgName) {
+        super(Paths.get(basePath), orgName);
     }
 }

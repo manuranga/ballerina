@@ -181,7 +181,7 @@ public class PackageLoader {
             // create the default program repo
             String sourceRoot = options.get(SOURCE_ROOT);
             // TODO: replace by the org read form TOML.
-            programRepo = new LocalFSPackageRepository(sourceRoot, Names.ANON_ORG.getValue());
+            programRepo = new LocalFSPackageRepository(sourceRoot, Names.ANON_ORG);
         }
 
         PackageRepository systemRepo = this.loadSystemRepository();
