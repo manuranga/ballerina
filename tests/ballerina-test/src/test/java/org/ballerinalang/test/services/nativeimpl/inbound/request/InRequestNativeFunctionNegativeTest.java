@@ -161,8 +161,8 @@ public class InRequestNativeFunctionNegativeTest {
         Assert.assertEquals(resultNegative.getErrorCount(), 2);
         //testRequestSetStatusCode
         BAssertUtil.validateError(resultNegative, 0,
-                "undefined function 'setStatusCode' in struct 'ballerina.net.http:InRequest'", 4, 5);
+                                  "undefined function 'setStatusCode' in struct 'ballerina.net.http:InRequest'", 4, 5);
         BAssertUtil.validateError(resultNegative, 1,
-                "undefined field 'statusCode' in struct 'ballerina.net.http:InRequest'", 5, 5);
+                                  "undefined field 'statusCode' in struct 'ballerina.net.http:InRequest'", 5, 5);
     }
 }

@@ -42,7 +42,8 @@ import java.util.zip.ZipInputStream;
  * @since 0.964
  */
 @BallerinaFunction(
-        packageName = "ballerina.compression",
+        orgName = "ballerina",
+        packageName = "compression",
         functionName = "unzipBytes",
         args = {@Argument(name = "content", type = TypeKind.BLOB),
                 @Argument(name = "destDir", type = TypeKind.STRING),

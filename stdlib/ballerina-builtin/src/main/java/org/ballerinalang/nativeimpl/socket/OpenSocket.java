@@ -45,13 +45,14 @@ import static org.ballerinalang.nativeimpl.socket.SocketConstants.LOCAL_PORT_OPT
  * @since 0.963.0
  */
 @BallerinaFunction(
-        packageName = "ballerina.io",
+        orgName = "ballerina",
+        packageName = "io",
         functionName = "openSocket",
         args = {@Argument(name = "host", type = TypeKind.STRING),
                 @Argument(name = "port", type = TypeKind.INT),
                 @Argument(name = "option", type = TypeKind.STRUCT, structType = "SocketProperties",
-                        structPackage = "ballerina.io")},
-        returnType = {@ReturnType(type = TypeKind.STRUCT, structType = "Socket", structPackage = "ballerina.io")},
+                        structPackage = "io")},
+        returnType = {@ReturnType(type = TypeKind.STRUCT, structType = "Socket", structPackage = "io")},
         isPublic = true
 )
 public class OpenSocket extends AbstractNativeFunction {

@@ -35,7 +35,8 @@ import java.nio.file.Paths;
  * @since 0.964
  */
 @BallerinaFunction(
-        packageName = "ballerina.compression",
+        orgName = "ballerina",
+        packageName = "compression",
         functionName = "unzipFile",
         args = {@Argument(name = "dirPath", type = TypeKind.STRING),
                 @Argument(name = "destDir", type = TypeKind.STRING),

@@ -41,7 +41,8 @@ import java.util.zip.ZipOutputStream;
  * @since 0.964
  */
 @BallerinaFunction(
-        packageName = "ballerina.compression",
+        orgName = "ballerina",
+        packageName = "compression",
         functionName = "zipToBytes",
         args = {@Argument(name = "dirPath", type = TypeKind.STRING)},
         returnType = {@ReturnType(type = TypeKind.BLOB)},

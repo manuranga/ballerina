@@ -60,12 +60,13 @@ import javax.net.ssl.TrustManagerFactory;
  * @since 0.964.0
  */
 @BallerinaFunction(
-        packageName = "ballerina.io", functionName = "openSecureSocket",
-        args = { @Argument(name = "host", type = TypeKind.STRING),
-                 @Argument(name = "port", type = TypeKind.INT),
-                 @Argument(name = "option", type = TypeKind.STRUCT, structType = "SocketProperties",
-                           structPackage = "ballerina.io") },
-        returnType = { @ReturnType(type = TypeKind.STRUCT, structType = "Socket", structPackage = "ballerina.io") },
+        orgName = "ballerina",
+        packageName = "io", functionName = "openSecureSocket",
+        args = {@Argument(name = "host", type = TypeKind.STRING),
+                @Argument(name = "port", type = TypeKind.INT),
+                @Argument(name = "option", type = TypeKind.STRUCT, structType = "SocketProperties",
+                        structPackage = "io")},
+        returnType = {@ReturnType(type = TypeKind.STRUCT, structType = "Socket", structPackage = "io")},
         isPublic = true)
 public class OpenSecureSocket extends AbstractNativeFunction {
 
