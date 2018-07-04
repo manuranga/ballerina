@@ -42,7 +42,7 @@ import static org.ballerinalang.compiler.CompilerOptionName.SKIP_TESTS;
 public class GenerateBalx {
 
     public static void main(String[] args) {
-        Path prjctDir = Paths.get(args[0]);
+        Path prjctDir = Paths.get("/tmp/hello/");
         CompilerContext context = new CompilerContext();
         CompilerOptions options = CompilerOptions.getInstance(context);
         options.put(PROJECT_DIR, prjctDir.toString());

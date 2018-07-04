@@ -219,6 +219,7 @@ import org.wso2.ballerinalang.programfile.cpentries.TypeRefCPEntry;
 import org.wso2.ballerinalang.programfile.cpentries.UTF8CPEntry;
 import org.wso2.ballerinalang.programfile.cpentries.WorkerDataChannelRefCPEntry;
 
+import javax.xml.XMLConstants;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -228,8 +229,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Stack;
 import java.util.stream.Collectors;
-
-import javax.xml.XMLConstants;
 
 import static org.wso2.ballerinalang.compiler.codegen.CodeGenerator.VariableIndex.Kind.FIELD;
 import static org.wso2.ballerinalang.compiler.codegen.CodeGenerator.VariableIndex.Kind.LOCAL;
@@ -284,6 +283,7 @@ public class CodeGenerator extends BLangNodeVisitor {
     // TODO Remove this dependency from the code generator
     private final SymbolTable symTable;
     private final PackageCache packageCache;
+    private final IRGenerator irGenerator;
 
     private PackageInfo currentPkgInfo;
     private PackageID currentPkgID;
@@ -326,6 +326,7 @@ public class CodeGenerator extends BLangNodeVisitor {
         context.put(CODE_GENERATOR_KEY, this);
         this.symTable = SymbolTable.getInstance(context);
         this.packageCache = PackageCache.getInstance(context);
+        this.irGenerator = IRGenerator.getInstance(context);
     }
 
     public ProgramFile generateBALX(BLangPackage pkgNode) {
@@ -354,6 +355,9 @@ public class CodeGenerator extends BLangNodeVisitor {
 
         pkgNode.symbol.packageFile = new PackageFile(getPackageBinaryContent(pkgNode));
         setEntryPoints(pkgNode.symbol.packageFile, pkgNode);
+
+        this.irGenerator.generate(this.currentPkgInfo);
+
         this.currentPkgInfo = null;
         return pkgNode;
     }
