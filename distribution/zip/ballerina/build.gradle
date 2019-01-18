@@ -47,7 +47,7 @@ dependencies {
     dist 'io.ballerina.messaging:broker-auth:0.970.0'
     dist 'io.ballerina.messaging:broker-common:0.970.0'
     dist 'io.ballerina.messaging:broker-coordination:0.970.0'
-    dist 'io.ballerina.messaging:broker-core:0.970.0'
+    dist 'io.ballerina.messaging:broker-core:0.970.5'
     dist 'io.ballerina.messaging:broker-rest-runner:0.970.0'
     dist 'org.apache.geronimo.specs:geronimo-activation_1.1_spec:1.1'
     dist 'org.apache.geronimo.specs:geronimo-stax-api_1.0_spec:1.0.1'

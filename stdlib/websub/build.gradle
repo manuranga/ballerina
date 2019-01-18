@@ -43,7 +43,7 @@ dependencies {
     implementation project(':ballerina-h2')
     implementation project(':ballerina-h2')
 
-    implementation 'io.ballerina.messaging:broker-core:0.970.0'
+    implementation 'io.ballerina.messaging:broker-core:0.970.5'
 }
 
 description = 'Ballerina - WebSub'
