@@ -35,6 +35,12 @@ public extern function visitSingleOperandInstruction(int opcode, int operand);
 
 public extern function visitVariableInstruction(int opcode, int varIndex);
 
+public extern function visitIntInstruction(int opcode, int varIndex);
+
+public extern function visitLookupSwitchInstruction(string label, int[] keys, string[] labels);
+
+public extern function visitField(int access, string name, string descriptor, string? signature, any value);
+
 public extern function visitLoadConstantInstruction(any value);
 
 public extern function visitTypeInstruction(int opcode, string className);
