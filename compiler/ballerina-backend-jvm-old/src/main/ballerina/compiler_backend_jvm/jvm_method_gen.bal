@@ -33,7 +33,7 @@ function genMethodForBallerinaFunction(bir:Function func,
                                            bir:BType? attachedType = ()) {
     string currentPackageName = getPackageName(module.org.value, module.name.value);
     BalToJVMIndexMap indexMap = new;
-    string funcName = cleanupFunctionName(untaint func.name.value);
+    string funcName = cleanupFunctionName(<@untainted> func.name.value);
     int returnVarRefIndex = -1;
 
     bir:VariableDcl stranVar = { typeValue: "string", // should be record
@@ -439,7 +439,7 @@ function generateBasicBlocks(jvm:MethodVisitor mv, bir:BasicBlock?[] basicBlocks
             bir:Function func, int returnVarRefIndex, int stateVarIndex, int localVarOffset, boolean isArg,
             bir:Package module, string currentPackageName, bir:BType? attachedType) {
     int j = 0;
-    string funcName = cleanupFunctionName(untaint func.name.value);
+    string funcName = cleanupFunctionName(<@untainted> func.name.value);
 
     // process error entries
     bir:ErrorEntry?[] errorEntries = func.errorEntries;
@@ -1050,7 +1050,7 @@ function getMainFunc(bir:Function?[] funcs) returns bir:Function? {
     bir:Function? userMainFunc = ();
     foreach var func in funcs {
         if (func is bir:Function && func.name.value == "main") {
-            userMainFunc = untaint func;
+            userMainFunc = <@untainted> func;
             break;
         }
     }
@@ -1595,14 +1595,14 @@ function generateFrameClasses(bir:Package pkg, map<byte[]> pkgEntries) {
 
 function generateFrameClassForFunction (string pkgName, bir:Function? func, map<byte[]> pkgEntries,
                                         bir:BType? attachedType = ()) {
-    bir:Function currentFunc = getFunction(untaint func);
+    bir:Function currentFunc = getFunction(<@untainted> func);
     if (isExternFunc(currentFunc)) {
         return;
     }
     string frameClassName = getFrameClassName(pkgName, currentFunc.name.value, attachedType);
     jvm:ClassWriter cw = new(COMPUTE_FRAMES);
     cw.visitSource(currentFunc.pos.sourceFileName);
-    currentClass = untaint frameClassName;
+    currentClass = <@untainted> frameClassName;
     cw.visit(V1_8, ACC_PUBLIC + ACC_SUPER, frameClassName, (), OBJECT, ());
     generateDefaultConstructor(cw, OBJECT);
 

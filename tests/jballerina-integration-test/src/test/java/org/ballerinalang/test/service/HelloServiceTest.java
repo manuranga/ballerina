@@ -47,7 +47,7 @@ public class HelloServiceTest extends BaseTest {
         String balFile = new File("src" + File.separator + "test" + File.separator + "resources"
                 + File.separator + "service" + File.separator + "service.bal")
                 .getAbsolutePath();
-        serverInstance.startServer(balFile, new int[SERVICE_PORT]);
+        serverInstance.startServer(balFile, new int[]{SERVICE_PORT});
     }
 
     @Test(description = "Test hello world service")

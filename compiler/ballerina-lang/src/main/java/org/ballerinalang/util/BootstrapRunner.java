@@ -96,7 +96,7 @@ public class BootstrapRunner {
                                                            boolean dumpBir, String... birCachePaths) {
         List<String> commands = new ArrayList<>();
         commands.add(entryBir);
-        commands.add(getBirPath());
+        commands.add(getMapPath());
         commands.add(jarOutputPath);
         commands.add(dumpBir ? "true" : "false"); // dump bir
         commands.addAll(Arrays.asList(birCachePaths));
@@ -112,7 +112,7 @@ public class BootstrapRunner {
         }
     }
 
-    private static String getBirPath() {
+    private static String getMapPath() {
         String ballerinaNativeMap = System.getenv("BALLERINA_NATIVE_MAP");
         return ballerinaNativeMap == null ? "" : ballerinaNativeMap;
     }
