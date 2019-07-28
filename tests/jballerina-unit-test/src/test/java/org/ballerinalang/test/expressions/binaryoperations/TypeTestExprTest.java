@@ -99,7 +99,7 @@ public class TypeTestExprTest {
         BAssertUtil.validateError(negativeResult, i++,
                 "unnecessary condition: expression will always evaluate to 'true'", 159, 18);
         BAssertUtil.validateError(negativeResult, i++,
-                "incompatible types: 'map<string>' will not be matched to 'json'", 160, 18);
+                "unnecessary condition: expression will always evaluate to 'true'", 160, 18);
         BAssertUtil.validateError(negativeResult, i++,
                 "unnecessary condition: expression will always evaluate to 'true'", 161, 18);
         BAssertUtil.validateError(negativeResult, i++,

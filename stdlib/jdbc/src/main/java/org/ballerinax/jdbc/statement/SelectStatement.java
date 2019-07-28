@@ -19,15 +19,15 @@ package org.ballerinax.jdbc.statement;
 
 import org.ballerinalang.jvm.ColumnDefinition;
 import org.ballerinalang.jvm.TableResourceManager;
+import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.types.BStructureType;
 import org.ballerinalang.jvm.values.ArrayValue;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.jvm.values.TypedescValue;
 import org.ballerinax.jdbc.Constants;
-import org.ballerinax.jdbc.SQLDatasource;
-import org.ballerinax.jdbc.SQLDatasourceUtils;
+import org.ballerinax.jdbc.datasource.SQLDatasource;
 import org.ballerinax.jdbc.exceptions.ApplicationException;
-import org.ballerinax.jdbc.exceptions.DatabaseException;
+import org.ballerinax.jdbc.exceptions.ErrorGenerator;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -49,7 +49,8 @@ public class SelectStatement extends AbstractSQLStatement {
     private final BStructureType structType;
 
     public SelectStatement(ObjectValue client, SQLDatasource datasource, String query, ArrayValue parameters,
-                           TypedescValue recordType) {
+                           TypedescValue recordType, Strand strand) {
+        super(strand);
         this.client = client;
         this.datasource = datasource;
         this.query = query;
@@ -65,13 +66,15 @@ public class SelectStatement extends AbstractSQLStatement {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
-        String errorMessagePrefix = "execute query failed: ";
+        String errorMessagePrefix = "Failed to execute select query: ";
         try {
             ArrayValue generatedParams = constructParameters(parameters);
-            conn = getDatabaseConnection(client, datasource, true);
+            conn = getDatabaseConnection(strand, client, datasource, true);
             String processedQuery = createProcessedQueryString(query, generatedParams);
             stmt = getPreparedStatement(conn, datasource, processedQuery);
-            createProcessedStatement(conn, stmt, generatedParams, datasource.getDatabaseProductName());
+            ProcessedStatement processedStatement = new ProcessedStatement(conn, stmt, generatedParams,
+                    datasource.getDatabaseProductName());
+            stmt = processedStatement.prepare();
             rs = stmt.executeQuery();
             TableResourceManager rm = new TableResourceManager(conn, stmt, true);
             List<ColumnDefinition> columnDefinitions = getColumnDefinitions(rs);
@@ -79,22 +82,16 @@ public class SelectStatement extends AbstractSQLStatement {
             return constructTable(rm, rs, structType, columnDefinitions, datasource.getDatabaseProductName());
         } catch (SQLException e) {
             cleanupResources(rs, stmt, conn, true);
+            handleErrorOnTransaction(this.strand);
             //TODO: JBalMigration Commenting out transaction handling and observability
-            //handleErrorOnTransaction(context);
             // checkAndObserveSQLError(context, "execute query failed: " + e.getMessage());
-            return SQLDatasourceUtils.getSQLDatabaseError(e, errorMessagePrefix);
-        } catch (DatabaseException e) {
-            cleanupResources(null, stmt, conn, true);
-            //TODO: JBalMigration Commenting out transaction handling and observability
-            //handleErrorOnTransaction(context);
-            // checkAndObserveSQLError(context, "execute query failed: " + e.getMessage());
-            return SQLDatasourceUtils.getSQLDatabaseError(e, errorMessagePrefix);
+            return ErrorGenerator.getSQLDatabaseError(e, errorMessagePrefix);
         } catch (ApplicationException e) {
             cleanupResources(null, stmt, conn, true);
             //TODO: JBalMigration Commenting out transaction handling and observability
-            //handleErrorOnTransaction(context);
+            handleErrorOnTransaction(this.strand);
             // checkAndObserveSQLError(context, "execute query failed: " + e.getMessage());
-            return SQLDatasourceUtils.getSQLApplicationError(e, errorMessagePrefix);
+            return ErrorGenerator.getSQLApplicationError(e, errorMessagePrefix);
         }
     }
 

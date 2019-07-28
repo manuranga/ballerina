@@ -151,7 +151,7 @@ public class MatchStructuredErrorPatternsTest {
 
         BInteger[] args1 = { new BInteger(1) };
         BValue[] returns1 = BRunUtil.invoke(result, "testErrorRestParamMatch", args1);
-        Assert.assertEquals(returns1[0].stringValue(), "(\"x\", 1)");
+        Assert.assertEquals(returns1[0].stringValue(), "x 1");
 
         BInteger[] args2 = { new BInteger(2) };
         BValue[] returns2 = BRunUtil.invoke(result, "testErrorRestParamMatch", args2);
@@ -159,7 +159,7 @@ public class MatchStructuredErrorPatternsTest {
 
         BInteger[] args3 = { new BInteger(3) };
         BValue[] returns3 = BRunUtil.invoke(result, "testErrorRestParamMatch", args3);
-        Assert.assertEquals(returns3[0].stringValue(), "Error Code{\"foo\":\"foo\"}");
+        Assert.assertEquals(returns3[0].stringValue(), "Error Code foo=foo");
     }
 
     @Test(description = "Test error match pattern")

@@ -18,6 +18,8 @@
 package org.ballerinax.jdbc.statement;
 
 import org.ballerinalang.jvm.BallerinaValues;
+import org.ballerinalang.jvm.scheduling.Strand;
+import org.ballerinalang.jvm.types.BMapType;
 import org.ballerinalang.jvm.types.BTypes;
 import org.ballerinalang.jvm.values.ArrayValue;
 import org.ballerinalang.jvm.values.MapValue;
@@ -26,19 +28,16 @@ import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.jvm.values.freeze.State;
 import org.ballerinalang.jvm.values.freeze.Status;
 import org.ballerinax.jdbc.Constants;
-import org.ballerinax.jdbc.SQLDatasource;
-import org.ballerinax.jdbc.SQLDatasourceUtils;
+import org.ballerinax.jdbc.datasource.SQLDatasource;
 import org.ballerinax.jdbc.exceptions.ApplicationException;
-import org.ballerinax.jdbc.exceptions.DatabaseException;
+import org.ballerinax.jdbc.exceptions.ErrorGenerator;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 
 /**
  * Represents an Update SQL statement.
@@ -50,15 +49,14 @@ public class UpdateStatement extends AbstractSQLStatement {
     private final ObjectValue client;
     private final SQLDatasource datasource;
     private final String query;
-    private final ArrayValue keyColumns;
     private final ArrayValue parameters;
 
-    public UpdateStatement(ObjectValue client, SQLDatasource datasource, String query,
-                           ArrayValue keyColumns, ArrayValue parameters) {
+    public UpdateStatement(ObjectValue client, SQLDatasource datasource, String query, ArrayValue parameters,
+                           Strand strand) {
+        super(strand);
         this.client = client;
         this.datasource = datasource;
         this.query = query;
-        this.keyColumns = keyColumns;
         this.parameters = parameters;
     }
 
@@ -70,30 +68,19 @@ public class UpdateStatement extends AbstractSQLStatement {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
-        boolean isInTransaction = false;
-        String errorMessagePrefix = "execute update failed: ";
+        boolean isInTransaction = strand.isInTransaction();
+        String errorMessagePrefix = "Failed to execute update query: ";
         try {
             ArrayValue generatedParams = constructParameters(parameters);
-            conn = getDatabaseConnection(client, datasource, false);
+            conn = getDatabaseConnection(strand, client, datasource, false);
             String processedQuery = createProcessedQueryString(query, generatedParams);
-            int keyColumnCount = 0;
-            if (keyColumns != null) {
-                keyColumnCount = keyColumns.size();
-            }
-            if (keyColumnCount > 0) {
-                String[] columnArray = new String[keyColumnCount];
-                for (int i = 0; i < keyColumnCount; i++) {
-                    columnArray[i] = keyColumns.getString(i);
-                }
-                stmt = conn.prepareStatement(processedQuery, columnArray);
-            } else {
-                stmt = conn.prepareStatement(processedQuery, Statement.RETURN_GENERATED_KEYS);
-            }
-            createProcessedStatement(conn, stmt, generatedParams, datasource.getDatabaseProductName());
+            stmt = conn.prepareStatement(processedQuery, Statement.RETURN_GENERATED_KEYS);
+            ProcessedStatement processedStatement = new ProcessedStatement(conn, stmt, generatedParams,
+                    datasource.getDatabaseProductName());
+            stmt = processedStatement.prepare();
             int count = stmt.executeUpdate();
             rs = stmt.getGeneratedKeys();
-            /*The result set contains the auto generated keys. There can be multiple auto generated columns
-            in a table.*/
+            //This result set contains the auto generated keys.
             MapValue<String, Object> generatedKeys;
             if (rs.next()) {
                 generatedKeys = getGeneratedKeys(rs);
@@ -102,16 +89,12 @@ public class UpdateStatement extends AbstractSQLStatement {
             }
             return createFrozenUpdateResultRecord(count, generatedKeys);
         } catch (SQLException e) {
-            return SQLDatasourceUtils.getSQLDatabaseError(e, errorMessagePrefix);
-            //handleErrorOnTransaction(context);
+            handleErrorOnTransaction(this.strand);
+            return ErrorGenerator.getSQLDatabaseError(e, errorMessagePrefix);
            // checkAndObserveSQLError(context, "execute update failed: " + e.getMessage());
-        }  catch (DatabaseException e) {
-            return SQLDatasourceUtils.getSQLDatabaseError(e, errorMessagePrefix);
-            //handleErrorOnTransaction(context);
-            // checkAndObserveSQLError(context, "execute update failed: " + e.getMessage());
-        }  catch (ApplicationException e) {
-            return SQLDatasourceUtils.getSQLApplicationError(e, errorMessagePrefix);
-            //handleErrorOnTransaction(context);
+        } catch (ApplicationException e) {
+            handleErrorOnTransaction(this.strand);
+            return ErrorGenerator.getSQLApplicationError(e, errorMessagePrefix);
            // checkAndObserveSQLError(context, "execute update failed: " + e.getMessage());
         } finally {
             cleanupResources(rs, stmt, conn, !isInTransaction);
@@ -119,44 +102,14 @@ public class UpdateStatement extends AbstractSQLStatement {
     }
 
     private MapValue<String, Object> getGeneratedKeys(ResultSet rs) throws SQLException {
-        MapValue<String, Object> generatedKeys = new MapValueImpl<>(BTypes.typeAnydata);
+        MapValue<String, Object> generatedKeys = new MapValueImpl<>(new BMapType(BTypes.typeAnydata));
         ResultSetMetaData metaData = rs.getMetaData();
         int columnCount = metaData.getColumnCount();
-        int columnType;
         Object value;
         String columnName;
-        BigDecimal bigDecimal;
         for (int i = 1; i <= columnCount; i++) {
-            columnType = metaData.getColumnType(i);
             columnName = metaData.getColumnLabel(i);
-            switch (columnType) {
-                case Types.INTEGER:
-                case Types.TINYINT:
-                case Types.SMALLINT:
-                    value = rs.getInt(i);
-                    break;
-                case Types.DOUBLE:
-                    value = rs.getDouble(i);
-                    break;
-                case Types.FLOAT:
-                    value = rs.getFloat(i);
-                    break;
-                case Types.BOOLEAN:
-                case Types.BIT:
-                    value = rs.getBoolean(i);
-                    break;
-                case Types.DECIMAL:
-                case Types.NUMERIC:
-                    bigDecimal = rs.getBigDecimal(i);
-                    value = bigDecimal;
-                    break;
-                case Types.BIGINT:
-                    value = rs.getLong(i);
-                    break;
-                default:
-                    value = rs.getString(i);
-                    break;
-            }
+            value = extractValueFromResultSet(metaData, rs, i);
             generatedKeys.put(columnName, value);
         }
         return generatedKeys;
@@ -164,7 +117,7 @@ public class UpdateStatement extends AbstractSQLStatement {
 
     private MapValue<String, Object> createFrozenUpdateResultRecord(int count, MapValue<String, Object> generatedKeys) {
         MapValue<String, Object> updateResultRecord = BallerinaValues
-                .createRecordValue(Constants.JDBC_PACKAGE_PATH, Constants.SQL_UPDATE_RESULT);
+                .createRecordValue(Constants.JDBC_PACKAGE_PATH, Constants.JDBC_UPDATE_RESULT);
         MapValue<String, Object> populatedUpdateResultRecord = BallerinaValues
                 .createRecord(updateResultRecord, count, generatedKeys);
         populatedUpdateResultRecord.attemptFreeze(new Status(State.FROZEN));

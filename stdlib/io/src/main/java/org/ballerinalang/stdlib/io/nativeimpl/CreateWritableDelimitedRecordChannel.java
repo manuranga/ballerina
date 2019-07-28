@@ -19,14 +19,13 @@
 
 package org.ballerinalang.stdlib.io.nativeimpl;
 
-import org.ballerinalang.jvm.Strand;
+import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.util.exceptions.BallerinaException;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.model.types.TypeKind;
 import org.ballerinalang.natives.annotations.Argument;
 import org.ballerinalang.natives.annotations.BallerinaFunction;
 import org.ballerinalang.natives.annotations.Receiver;
-import org.ballerinalang.natives.annotations.ReturnType;
 import org.ballerinalang.stdlib.io.channels.base.CharacterChannel;
 import org.ballerinalang.stdlib.io.channels.base.DelimitedRecordChannel;
 import org.ballerinalang.stdlib.io.csv.Format;
@@ -49,9 +48,6 @@ import org.slf4j.LoggerFactory;
                 structPackage = "ballerina/io"),
                 @Argument(name = "recordSeparator", type = TypeKind.STRING),
                 @Argument(name = "fieldSeparator", type = TypeKind.STRING)},
-        returnType = {@ReturnType(type = TypeKind.OBJECT, structType = "WritableRecordChannel",
-                structPackage = "ballerina/io"),
-                @ReturnType(type = TypeKind.RECORD, structType = "IOError", structPackage = "ballerina/io")},
         isPublic = true
 )
 public class CreateWritableDelimitedRecordChannel {

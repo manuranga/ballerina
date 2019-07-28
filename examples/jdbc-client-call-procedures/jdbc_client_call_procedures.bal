@@ -1,15 +1,15 @@
 import ballerina/io;
-import ballerinax/jdbc;
+import ballerinax/java.jdbc;
 
 // Client for MySQL database. This client can be used with any JDBC
 // supported database by providing the corresponding JDBC URL.
 jdbc:Client testDB = new({
-        url: "jdbc:mysql://localhost:3306/testdb",
-        username: "test",
-        password: "test",
-        poolOptions: { maximumPoolSize: 5 },
-        dbOptions: { useSSL: false }
-    });
+    url: "jdbc:mysql://localhost:3306/testdb",
+    username: "test",
+    password: "test",
+    poolOptions: { maximumPoolSize: 5 },
+    dbOptions: { useSSL: false }
+});
 
 // This is the `type` created to represent a data row.
 type Student record {
@@ -54,8 +54,9 @@ public function main() {
     if (retCall is ()|table<record {}>[]) {
         io:println("Call operation with IN params successful");
     } else {
-        io:println("Stored procedure call failed: "
-                + <string>retCall.detail().message);
+        error err = retCall;
+        io:println("Stored procedure call failed: ",
+                 <string> err.detail()["message"]);
     }
 
     // Here stored procedure with OUT and INOUT parameters is invoked.
@@ -73,8 +74,9 @@ public function main() {
         io:print("Student count with age = 20: ");
         io:println(param2.value);
     } else {
-        io:println("Stored procedure call failed: "
-                + <string>retCall.detail().message);
+        error err = retCall;
+        io:println("Stored procedure call failed: ",
+                 <string> err.detail()["message"]);
     }
 
     checkData();
@@ -92,11 +94,12 @@ public function main() {
 }
 
 // Function to handle the return value of the `update` remote function.
-function handleUpdate(jdbc:UpdateResult|error returned, string message) {
+function handleUpdate(jdbc:UpdateResult|jdbc:Error returned, string message) {
     if (returned is jdbc:UpdateResult) {
-        io:println(message + " status: " + returned.updatedRowCount);
+        io:println(message, " status: ", returned.updatedRowCount);
     } else {
-        io:println(message + " failed: " + <string>returned.detail().message);
+        error err = returned;
+        io:println(message, " failed: ", <string> err.detail()["message"]);
     }
 }
 
@@ -108,10 +111,11 @@ function checkData() {
         // Iterating data.
         io:println("Data in students table:");
         foreach var row in dtReturned {
-            io:println("Student:" + row.id + "|" + row.name + "|" + row.age);
+            io:println("Student:", row.id, "|", row.name, "|", row.age);
         }
     } else {
-        io:println("Select data from student table failed: "
-                + <string>dtReturned.detail().message);
+        error err = dtReturned;
+        io:println("Select data from student table failed: ",
+                 <string> err.detail()["message"]);
     }
 }

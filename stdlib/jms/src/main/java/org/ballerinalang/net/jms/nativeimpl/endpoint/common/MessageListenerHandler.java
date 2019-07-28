@@ -19,7 +19,7 @@
 
 package org.ballerinalang.net.jms.nativeimpl.endpoint.common;
 
-import org.ballerinalang.jvm.Strand;
+import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.net.jms.JmsConstants;
 import org.ballerinalang.net.jms.JmsMessageListenerImpl;
@@ -42,8 +42,11 @@ public class MessageListenerHandler {
     public static Object createAndRegister(Strand strand, ObjectValue listenerObj, ObjectValue service) {
         ObjectValue consumerConnector = listenerObj.getObjectValue(JmsConstants.CONSUMER_ACTIONS);
         Object nativeData = consumerConnector.getNativeData(JmsConstants.JMS_CONSUMER_OBJECT);
+        ObjectValue sessionObj =
+                (ObjectValue) listenerObj.get(JmsConstants.SESSION_FIELD_NAME);
         if (nativeData instanceof MessageConsumer) {
-            MessageListener listener = new JmsMessageListenerImpl(strand.scheduler, service, consumerConnector);
+            MessageListener listener = new JmsMessageListenerImpl(strand.scheduler, service, consumerConnector,
+                                                                  sessionObj);
             try {
                 ((MessageConsumer) nativeData).setMessageListener(listener);
             } catch (JMSException e) {

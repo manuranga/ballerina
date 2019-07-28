@@ -19,9 +19,10 @@
 
 package org.ballerinalang.net.jms.nativeimpl.endpoint.common;
 
-import org.ballerinalang.jvm.BallerinaValues;
+import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.net.jms.JmsConstants;
+import org.ballerinalang.net.jms.JmsUtils;
 import org.ballerinalang.net.jms.utils.BallerinaAdapter;
 
 import javax.jms.JMSException;
@@ -36,21 +37,19 @@ public class ReceiveActionHandler {
     private ReceiveActionHandler() {
     }
 
-    public static Object handle(ObjectValue connectorBObject, long timeInMilliSeconds) {
+    public static Object handle(Strand strand, ObjectValue connectorBObject, long timeInMilliSeconds) {
 
         MessageConsumer messageConsumer =
                 (MessageConsumer) connectorBObject.getNativeData(JmsConstants.JMS_CONSUMER_OBJECT);
-//        SessionConnector sessionConnector =
-//                (SessionConnector) connectorBObject.getNativeData(JmsConstants.SESSION_CONNECTOR_OBJECT);
+        SessionConnector sessionConnector =
+                (SessionConnector) connectorBObject.getNativeData(JmsConstants.SESSION_CONNECTOR_OBJECT);
 
         try {
-//            sessionConnector.handleTransactionBlock(context);
+            sessionConnector.handleTransactionBlock(strand);
             Message message = messageConsumer.receive(timeInMilliSeconds);
             if (message != null) {
-                ObjectValue messageBObject = BallerinaValues.createObjectValue(JmsConstants.PROTOCOL_PACKAGE_JMS,
-                                                                               JmsConstants.MESSAGE_OBJ_NAME);
-                messageBObject.addNativeData(JmsConstants.JMS_MESSAGE_OBJECT, message);
-                return messageBObject;
+                return JmsUtils.createAndPopulateMessageObject(message, (ObjectValue) connectorBObject
+                        .getNativeData(JmsConstants.SESSION_OBJECT));
             }
         } catch (JMSException e) {
             return BallerinaAdapter.getError("Message receiving failed.", e);

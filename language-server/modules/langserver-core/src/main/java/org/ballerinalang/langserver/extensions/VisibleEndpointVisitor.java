@@ -36,6 +36,7 @@ import org.wso2.ballerinalang.compiler.tree.statements.BLangBlockStmt;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangForeach;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangIf;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangSimpleVariableDef;
+import org.wso2.ballerinalang.compiler.tree.statements.BLangTransaction;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangWhile;
 import org.wso2.ballerinalang.compiler.tree.types.BLangObjectTypeNode;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
@@ -94,8 +95,8 @@ public class VisibleEndpointVisitor extends LSNodeVisitor {
         SymbolEnv blockEnv = SymbolEnv.createBlockEnv(funcNode.getBody(), funcEnv);
         // resolve visible in-scope endpoints coming from current module or other modules
         List<SymbolMetaInfo> visibleEPSymbols = resolveVisibleEndpointSymbols(blockEnv, funcNode);
-        this.visibleEPsByNode.put(funcNode, visibleEPSymbols);
-        this.visit(funcNode.body, funcNode);
+        this.visibleEPsByNode.put(funcNode.body, visibleEPSymbols);
+        this.visit(funcNode.body);
     }
 
     @Override
@@ -113,7 +114,7 @@ public class VisibleEndpointVisitor extends LSNodeVisitor {
         this.symbolEnv = prevEnv;
     }
 
-    public void visit(BLangBlockStmt blockNode, BLangNode parent) {
+    public void visit(BLangBlockStmt blockNode) {
         // resolve locally declared endpoints
         blockNode.stmts.forEach(stmt -> {
             if (stmt instanceof  BLangSimpleVariableDef) {
@@ -135,10 +136,10 @@ public class VisibleEndpointVisitor extends LSNodeVisitor {
                             .setLocal(true)
                             .setPos(stmt.pos)
                             .build();
-                    if (this.visibleEPsByNode.containsKey(parent)) {
-                        this.visibleEPsByNode.get(parent).add(visibleEndpoint);
+                    if (this.visibleEPsByNode.containsKey(blockNode)) {
+                        this.visibleEPsByNode.get(blockNode).add(visibleEndpoint);
                     } else {
-                        this.visibleEPsByNode.put(parent, Arrays.asList(visibleEndpoint));
+                        this.visibleEPsByNode.put(blockNode, Arrays.asList(visibleEndpoint));
                     }
                 }
             } else {
@@ -149,25 +150,39 @@ public class VisibleEndpointVisitor extends LSNodeVisitor {
 
     @Override
     public void visit(BLangIf ifNode) {
-        this.visit(ifNode.body, ifNode);
+        this.visit(ifNode.body);
         if (ifNode.elseStmt instanceof  BLangBlockStmt) {
-            this.visit((BLangBlockStmt) ifNode.elseStmt, ifNode.elseStmt);
+            this.visit((BLangBlockStmt) ifNode.elseStmt);
         }
     }
 
     @Override
     public void visit(BLangWhile whileNode) {
-        this.visit(whileNode.body, whileNode);
+        this.visit(whileNode.body);
     }
 
     @Override
     public void visit(BLangWorker workerNode) {
-        this.visit(workerNode.body, workerNode);
+        this.visit(workerNode.body);
     }
 
     @Override
     public void visit(BLangForeach foreach) {
-        this.visit(foreach.body, foreach);
+        this.visit(foreach.body);
+    }
+
+    @Override
+    public void visit(BLangTransaction transactionNode) {
+        this.visit(transactionNode.transactionBody);
+        if (transactionNode.onRetryBody != null) {
+            this.visit(transactionNode.onRetryBody);
+        }
+        if (transactionNode.committedBody != null) {
+            this.visit(transactionNode.committedBody);
+        }
+        if (transactionNode.abortedBody != null) {
+            this.visit(transactionNode.abortedBody);
+        }
     }
 
     /**

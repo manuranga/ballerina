@@ -22,12 +22,15 @@ public type FuncBodyParser object {
     map<VariableDcl> localVarMap;
     map<VariableDcl> globalVarMap;
     TypeDef?[] typeDefs;
+    VariableDcl? receiver;
 
-    public function __init(BirChannelReader reader, map<VariableDcl> globalVarMap, map<VariableDcl> localVarMap, TypeDef?[] typeDefs) {
+    public function __init(BirChannelReader reader, map<VariableDcl> globalVarMap, map<VariableDcl> localVarMap,
+                           TypeDef?[] typeDefs, VariableDcl? receiver) {
         self.reader = reader;
         self.localVarMap = localVarMap;
         self.globalVarMap = globalVarMap;
         self.typeDefs = typeDefs;
+        self.receiver = receiver;
     }
 
     public function parseBB(boolean addInterimBB) returns BasicBlock[] {
@@ -61,7 +64,7 @@ public type FuncBodyParser object {
     }
 
     public function parseEE() returns ErrorEntry {
-        return { trapBB: self.parseBBRef(), errorOp: self.parseVarRef() };
+        return { trapBB: self.parseBBRef(), errorOp: self.parseVarRef(), targetBB: self.parseBBRef() };
     }
 
     public function parseInstruction() returns Instruction {
@@ -120,7 +123,7 @@ public type FuncBodyParser object {
             var bType = self.reader.readTypeCpRef();
             var lhsOp = self.parseVarRef();
             var rhsOp = self.parseVarRef();
-            IsLike isLike = {pos:pos, kind:kind, typeValue:bType, lhsOp:lhsOp, rhsOp:rhsOp};
+            IsLike isLike = {pos:pos, kind:kind, typeVal:bType, lhsOp:lhsOp, rhsOp:rhsOp};
             return isLike;
         } else if (kindTag == INS_TYPE_TEST) {
             kind = INS_KIND_TYPE_TEST;
@@ -256,11 +259,13 @@ public type FuncBodyParser object {
             return mapStore;
         } else if (kindTag == INS_MAP_LOAD) {
             kind = INS_KIND_MAP_LOAD;
-            boolean except = self.reader.readBoolean();
+            boolean optionalFieldAccess = self.reader.readBoolean();
+            boolean fillingRead = self.reader.readBoolean();
             var lhsOp = self.parseVarRef();
             var keyOp = self.parseVarRef();
             var rhsOp = self.parseVarRef();
-            FieldAccess mapLoad = {pos:pos, kind:kind, lhsOp:lhsOp, keyOp:keyOp, rhsOp:rhsOp, except:except};
+            FieldAccess mapLoad = {pos: pos, kind: kind, lhsOp: lhsOp, keyOp: keyOp, rhsOp: rhsOp,
+                                    optionalFieldAccess: optionalFieldAccess, fillingRead: fillingRead };
             return mapLoad;
         } else if (kindTag == INS_OBJECT_STORE) {
             kind = INS_KIND_OBJECT_STORE;
@@ -550,28 +555,50 @@ public type FuncBodyParser object {
         } else if (kindTag == INS_LOCK) {
             TerminatorKind kind = TERMINATOR_LOCK;
 
-            var globleVarCount = self.reader.readInt32();
-            string[] globleVarName = [];
-            int i = 0;
-            while (i < globleVarCount) {
-                globleVarName[i] = self.reader.readStringCpRef();
-                i += 1;
-            }
+            string globleVarName = self.reader.readStringCpRef();
+            VariableDcl varDecl = self.getDecl(VAR_SCOPE_GLOBAL, globleVarName, VAR_KIND_GLOBAL);
+            Lock lockIns = {pos:pos, kind:kind, globleVar:varDecl, lockBB:self.parseBBRef()};
+            return lockIns;
+        } else if (kindTag == INS_FIELD_LOCK) {
+            TerminatorKind kind = TERMINATOR_FIELD_LOCK;
 
-            Lock lockIns = {pos:pos, kind:kind, globleVars:globleVarName, lockBB:self.parseBBRef()};
+            string localVarName = self.reader.readStringCpRef();
+            VariableDcl varDecl = self.getDecl(VAR_SCOPE_FUNCTION, localVarName, VAR_KIND_SELF);
+            string fieldName = self.reader.readStringCpRef();
+            FieldLock lockIns = {pos:pos, kind:kind, localVar:varDecl, field:fieldName, lockBB:self.parseBBRef()};
             return lockIns;
         } else if (kindTag == INS_UNLOCK) {
             TerminatorKind kind = TERMINATOR_UNLOCK;
 
             var globleVarCount = self.reader.readInt32();
-            string[] globleVarName = [];
+            VariableDcl?[] globleVars = [];
             int i = 0;
             while (i < globleVarCount) {
-                globleVarName[i] = self.reader.readStringCpRef();
+                string varName = self.reader.readStringCpRef();
+                globleVars[i] = self.getDecl(VAR_SCOPE_GLOBAL, varName, VAR_KIND_GLOBAL);
                 i += 1;
             }
 
-            Unlock unlockIns = {pos:pos, kind:kind, globleVars:globleVarName, unlockBB:self.parseBBRef()};
+            var localLockCount = self.reader.readInt32();
+            LocalLocks?[] localLocks = [];
+            int j = 0;
+            while (j < localLockCount) {
+                string localVarName = self.reader.readStringCpRef();
+                VariableDcl varDecl = self.getDecl(VAR_SCOPE_FUNCTION, localVarName, VAR_KIND_SELF);
+                var fieldCount = self.reader.readInt32();
+                LocalLocks localLock = {localVar:varDecl, fields:[]};
+                int k = 0;
+                while (k < fieldCount) {
+                    string fieldName = self.reader.readStringCpRef();
+                    localLock.fields[k] = fieldName;
+                    k += 1;
+                }
+                localLocks[j] = localLock;
+                j += 1;
+            }
+
+            Unlock unlockIns = {pos:pos, kind:kind, globleVars:globleVars,
+                localLocks:localLocks, unlockBB:self.parseBBRef()};
             return unlockIns;
         }
         error err = error("term instruction kind " + kindTag + " not impl.");
@@ -688,13 +715,9 @@ public type FuncBodyParser object {
             }
         }
 
-        // for self referrence, create a dummy varDecl
+        // for self referrence, return the receiver
         if (kind == VAR_KIND_SELF) {
-            VariableDcl varDecl = { kind : kind, 
-                                    varScope : varScope, 
-                                    name : {value : varName}
-                                };
-            return varDecl;
+            return <VariableDcl> self.receiver;
         }
 
         var possibleDcl = self.localVarMap[varName];

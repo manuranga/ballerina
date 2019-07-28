@@ -409,6 +409,7 @@ public class MarkdownDocumentationTest {
         Assert.assertEquals(documentationAttachment.getDocumentation(), "PizzaService HTTP Service");
     }
 
+    // Stopping on arbitrary compiler phase is not supported.
     @Test(description = "Test doc native function")
     public void testDocNativeFunction() {
         CompileResult compileResult = BCompileUtil.compile("test-src/documentation/markdown_native_function.bal",

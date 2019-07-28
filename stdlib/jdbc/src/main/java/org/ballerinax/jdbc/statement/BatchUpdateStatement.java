@@ -17,16 +17,27 @@
  */
 package org.ballerinax.jdbc.statement;
 
+import org.ballerinalang.jvm.BallerinaValues;
+import org.ballerinalang.jvm.scheduling.Strand;
+import org.ballerinalang.jvm.types.BArrayType;
+import org.ballerinalang.jvm.types.BTypes;
 import org.ballerinalang.jvm.values.ArrayValue;
+import org.ballerinalang.jvm.values.ErrorValue;
+import org.ballerinalang.jvm.values.MapValue;
+import org.ballerinalang.jvm.values.MapValueImpl;
 import org.ballerinalang.jvm.values.ObjectValue;
-import org.ballerinax.jdbc.SQLDatasource;
-import org.ballerinax.jdbc.SQLDatasourceUtils;
+import org.ballerinalang.jvm.values.freeze.State;
+import org.ballerinalang.jvm.values.freeze.Status;
+import org.ballerinax.jdbc.Constants;
+import org.ballerinax.jdbc.datasource.SQLDatasource;
 import org.ballerinax.jdbc.exceptions.ApplicationException;
-import org.ballerinax.jdbc.exceptions.DatabaseException;
+import org.ballerinax.jdbc.exceptions.ErrorGenerator;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -42,98 +53,94 @@ public class BatchUpdateStatement extends AbstractSQLStatement {
     private final SQLDatasource datasource;
     private final String query;
     private final ArrayValue parameters;
+    private final boolean rollbackAllInFailure;
 
-    public BatchUpdateStatement(ObjectValue client, SQLDatasource datasource, String query, ArrayValue parameters) {
+    public BatchUpdateStatement(ObjectValue client, SQLDatasource datasource, String query,
+                                ArrayValue parameters, boolean rollbackAllInFailure, Strand strand) {
+        super(strand);
         this.client = client;
         this.datasource = datasource;
         this.query = query;
         this.parameters = parameters;
+        this.rollbackAllInFailure = rollbackAllInFailure;
     }
 
     @Override
-    public Object execute() {
+    public MapValue<String, Object> execute() {
         //TODO: JBalMigration Commenting out transaction handling and observability
         //TODO: #16033
         // checkAndObserveSQLAction(context, datasource, query);
         Connection conn = null;
         PreparedStatement stmt = null;
+        ResultSet rs;
+        MapValue<String, ArrayValue> generatedKeys = new MapValueImpl<>();
         int[] updatedCount;
         int paramArrayCount = 0;
-        boolean isInTransaction = false;
-        String errorMessagePrefix = "execute batch update failed";
+        if (parameters != null) {
+            paramArrayCount = parameters.size();
+        }
+
+        boolean isInTransaction = strand.isInTransaction();
+        String errorMessagePrefix = "Failed to execute batch update";
         try {
-            conn = getDatabaseConnection(client, datasource, false);
-            stmt = conn.prepareStatement(query);
+            conn = getDatabaseConnection(strand, client, datasource, false);
+            stmt = conn.prepareStatement(query, PreparedStatement.RETURN_GENERATED_KEYS);
             conn.setAutoCommit(false);
-            if (parameters != null) {
-                paramArrayCount = parameters.size();
-                if (paramArrayCount == 0) {
-                    stmt.addBatch();
-                }
-                for (int index = 0; index < paramArrayCount; index++) {
-                    ArrayValue params = (ArrayValue) parameters.getValue(index);
-                    ArrayValue generatedParams = constructParameters(params);
-                    createProcessedStatement(conn, stmt, generatedParams, datasource.getDatabaseProductName());
-                    stmt.addBatch();
-                }
-            } else {
+            if (paramArrayCount == 0) {
+                stmt.addBatch();
+            }
+            for (int index = 0; index < paramArrayCount; index++) {
+                ArrayValue params = (ArrayValue) parameters.getValue(index);
+                ArrayValue generatedParams = constructParameters(params);
+                ProcessedStatement processedStatement = new ProcessedStatement(conn, stmt, generatedParams,
+                        datasource.getDatabaseProductName());
+                stmt = processedStatement.prepare();
                 stmt.addBatch();
             }
             updatedCount = stmt.executeBatch();
+            rs = stmt.getGeneratedKeys();
+            //This result set contains the auto generated keys.
+            generatedKeys = getGeneratedKeysFromBatch(rs);
             if (!isInTransaction) {
                 conn.commit();
             }
-            return processAndSetBatchUpdateResult(updatedCount, paramArrayCount);
+            return createFrozenBatchUpdateResultRecord(createUpdatedCountArray(updatedCount, paramArrayCount),
+                    generatedKeys, null);
         } catch (BatchUpdateException e) {
             // Depending on the driver, at this point, driver may or may not have executed the remaining commands in
             // the batch which come after the command that failed.
             // We could have rolled back the connection to keep a consistent behavior in Ballerina regardless of
             // the driver. But, in Ballerina, we've decided to honor whatever the behavior of the driver and
-            // avoid rolling back the connection, because a Ballerina developer might have a requirement to
-            // ignore a few failed commands in the batch and let the rest of the commands run if driver allows it.
+            // decide it based on the user input of `rollbackAllInFailure` property, because a Ballerina developer
+            // might have a requirement to ignore a few failed commands in the batch and let the rest of the commands
+            // run if driver allows it.
             updatedCount = e.getUpdateCounts();
-            return processAndSetBatchUpdateResult(updatedCount, paramArrayCount);
+            if (!isInTransaction && rollbackAllInFailure) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    errorMessagePrefix += " and failed to rollback the intermediate changes";
+                }
+            }
+            handleErrorOnTransaction(this.strand);
+            return createFrozenBatchUpdateResultRecord(createUpdatedCountArray(updatedCount, paramArrayCount),
+                    generatedKeys, ErrorGenerator.getSQLDatabaseError(e, errorMessagePrefix + ": "));
         } catch (SQLException e) {
-            if (conn != null) {
-                if (!isInTransaction) {
-                    try {
-                        conn.rollback();
-                    } catch (SQLException ex) {
-                        errorMessagePrefix += ", failed to rollback any changes happened in-between";
-                    }
-                }
-            }
-            // handleErrorOnTransaction(context);
-            // checkAndObserveSQLError(context, e.getMessage());
-            return SQLDatasourceUtils.getSQLDatabaseError(e, errorMessagePrefix + ": ");
-        } catch (DatabaseException e) {
-            if (!isInTransaction) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    errorMessagePrefix += ", failed to rollback any changes happened in-between";
-                }
-            }
-            // handleErrorOnTransaction(context);
-            // checkAndObserveSQLError(context, e.getMessage());
-            return SQLDatasourceUtils.getSQLDatabaseError(e, errorMessagePrefix + ": ");
+             handleErrorOnTransaction(this.strand);
+             //checkAndObserveSQLError(context, e.getMessage());
+            return createFrozenBatchUpdateResultRecord(createUpdatedCountArray(null, paramArrayCount),
+                    generatedKeys, ErrorGenerator.getSQLDatabaseError(e, errorMessagePrefix + ": "));
         } catch (ApplicationException e) {
-            if (!isInTransaction) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    errorMessagePrefix += ", failed to rollback any changes happened in-between";
-                }
-            }
-            // handleErrorOnTransaction(context);
+            handleErrorOnTransaction(this.strand);
             // checkAndObserveSQLError(context, e.getMessage());
-            return SQLDatasourceUtils.getSQLApplicationError(e, errorMessagePrefix + ": ");
+            return createFrozenBatchUpdateResultRecord(createUpdatedCountArray(null, paramArrayCount),
+                    generatedKeys, ErrorGenerator.getSQLApplicationError(e, errorMessagePrefix + ": "));
         } finally {
             cleanupResources(stmt, conn, !isInTransaction);
         }
     }
 
-    private ArrayValue processAndSetBatchUpdateResult(int[] updatedCounts, int paramArrayCount) {
+    private ArrayValue createUpdatedCountArray(int[] updatedCounts, int paramArrayCount) {
         // After a command in a batch update fails to execute properly and a BatchUpdateException is thrown, the
         // driver may or may not continue to process the remaining commands in the batch. If the driver does not
         // continue processing after a failure, the array returned by the method will have -3 (EXECUTE_FAILED) for
@@ -148,5 +155,40 @@ public class BatchUpdateStatement extends AbstractSQLStatement {
             }
         }
         return countArray;
+    }
+
+    private MapValue<String, Object> createFrozenBatchUpdateResultRecord(ArrayValue countArray,
+            MapValue<String, ArrayValue> generatedKeys, ErrorValue retError) {
+        MapValue<String, Object> batchUpdateResultRecord = BallerinaValues
+                .createRecordValue(Constants.JDBC_PACKAGE_PATH, Constants.JDBC_BATCH_UPDATE_RESULT);
+        MapValue<String, Object> populatedUpdateResultRecord = BallerinaValues
+                .createRecord(batchUpdateResultRecord, countArray, generatedKeys, retError);
+        populatedUpdateResultRecord.attemptFreeze(new Status(State.FROZEN));
+        return populatedUpdateResultRecord;
+    }
+
+    private MapValue<String, ArrayValue> getGeneratedKeysFromBatch(ResultSet rs) throws SQLException {
+        MapValue<String, ArrayValue> generatedKeys = new MapValueImpl<>(new BArrayType(BTypes.typeAnydata));
+        ResultSetMetaData metaData = rs.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        Object value;
+        String columnName;
+        while (rs.next()) {
+            for (int i = 1; i <= columnCount; i++) {
+                columnName = metaData.getColumnLabel(i);
+                value = extractValueFromResultSet(metaData, rs, i);
+                addToMap(generatedKeys, columnName, value);
+            }
+        }
+        return generatedKeys;
+    }
+
+    private void addToMap(MapValue<String, ArrayValue> map, String columnName, Object value) {
+        ArrayValue list = map.get(columnName);
+        if (list == null) {
+            list = new ArrayValue(new BArrayType(BTypes.typeAnydata));
+            map.put(columnName, list);
+        }
+        list.append(value);
     }
 }

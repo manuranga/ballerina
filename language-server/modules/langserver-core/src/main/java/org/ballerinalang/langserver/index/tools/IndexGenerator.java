@@ -49,7 +49,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -61,20 +61,18 @@ public class IndexGenerator {
 
     private List<BPackageSymbol> getBLangPackages() {
         List<BPackageSymbol> bPackageSymbols = new ArrayList<>();
-        List<String> packages = Arrays.asList("auth", "builtin", "cache", "config", "crypto", "grpc", /*"jdbc",*/
-                "encoding", "file", "filepath", "grpc", "http", "internal", "io", /*"jms",*/ "jwt", "ldap",
-                "log", "math", "artemis", "rabbitmq", "mime", "nats", "oauth2", /*"observability", */"openapi",
-                "reflect", /*"socket",*/ "streams", "system", "task", "time", "transactions", "utils"
-                /*, "websub"*/);
+        List<String> packages = Arrays.asList("auth", "cache", "config", "crypto", "encoding", "file", "filepath",
+                "grpc", "http", "io", "jdbc", "jms", "jwt", "ldap", "log", "math", "artemis", "nats", "rabbitmq",
+                "mime", "oauth2", "observability", "openapi", "reflect", "socket", "streams", "system", "task", "test", 
+                "time", "transactions", "utils", "websub", "xslt");
         CompilerContext tempCompilerContext = LSContextManager.getInstance().getBuiltInPackagesCompilerContext();
         packages.forEach(pkg -> {
             try {
-                PackageID packageID = new PackageID(new org.wso2.ballerinalang.compiler.util.Name("ballerina"),
+                PackageID pkgID = new PackageID(new org.wso2.ballerinalang.compiler.util.Name("ballerina"),
                         new org.wso2.ballerinalang.compiler.util.Name(pkg),
                         new org.wso2.ballerinalang.compiler.util.Name(""));
-                BPackageSymbol bPackageSymbol = LSPackageLoader.getPackageSymbolById(tempCompilerContext, packageID);
-                Objects.requireNonNull(bPackageSymbol);
-                bPackageSymbols.add(bPackageSymbol);
+                Optional<BPackageSymbol> pkgSymbol = LSPackageLoader.getPackageSymbolById(tempCompilerContext, pkgID);
+                pkgSymbol.ifPresent(bPackageSymbols::add);
             } catch (Exception e) {
                 logger.error("Cannot Load Package: ballerina/" + pkg);
                 throw new RuntimeException("Cannot Load Package: ballerina/" + pkg, e);

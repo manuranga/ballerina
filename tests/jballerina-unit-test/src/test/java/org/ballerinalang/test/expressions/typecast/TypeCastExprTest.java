@@ -332,13 +332,6 @@ public class TypeCastExprTest {
         Assert.assertEquals(errorMsg, "'string' value 'hello' cannot be converted to 'float'");
     }
 
-    @Test
-    public void testIncompatibleJsonToBoolean() {
-        BValue[] returns = BRunUtil.invoke(result, "testIncompatibleJsonToBoolean");
-        Assert.assertTrue(returns[0] instanceof BBoolean);
-        Assert.assertTrue(!((BBoolean) returns[0]).booleanValue());
-    }
-
     public void testBooleanInJsonToInt() {
         BValue[] returns = BRunUtil.invoke(result, "testBooleanInJsonToInt");
         Assert.assertTrue(returns[0] instanceof BError);
@@ -349,28 +342,28 @@ public class TypeCastExprTest {
 
     @Test(description = "Test casting a null JSON to string",
             expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: 'json' cannot be cast to 'string'.*")
+            expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'string'.*")
     public void testNullJsonToString() {
         BRunUtil.invoke(result, "testNullJsonToString");
     }
 
     @Test(description = "Test casting a null JSON to int",
             expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: 'json' cannot be cast to 'int'.*")
+            expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'int'.*")
     public void testNullJsonToInt() {
         BRunUtil.invoke(result, "testNullJsonToInt");
     }
 
     @Test(description = "Test casting a null JSON to float",
             expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: 'json' cannot be cast to 'float'.*")
+            expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'float'.*")
     public void testNullJsonToFloat() {
         BRunUtil.invoke(result, "testNullJsonToFloat");
     }
 
     @Test(description = "Test casting a null JSON to boolean",
             expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: 'json' cannot be cast to 'boolean'.*")
+            expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'boolean'.*")
     public void testNullJsonToBoolean() {
         BRunUtil.invoke(result, "testNullJsonToBoolean");
     }
@@ -537,8 +530,9 @@ public class TypeCastExprTest {
 
     @Test(description = "Test casting a struct to another struct in a different package")
     public void testCastToStructInDifferentPkg() {
-        CompileResult res = BCompileUtil.compile(this, "test-src", "expressions.typecast.foo");
-        BValue[] returns = BRunUtil.invoke(res, "testCastToStructInDifferentPkg");
+        CompileResult res = BCompileUtil.compile(this, "test-src/expressions.typecast.foo",
+                "expressions.typecast.foo");
+        BRunUtil.invoke(res, "testCastToStructInDifferentPkg");
     }
 
     @Test
@@ -595,7 +589,7 @@ public class TypeCastExprTest {
         BValue[] returns = BRunUtil.invoke(result, "testAnyNullToString");
 
         // null to string should return string null
-        Assert.assertEquals(returns[0].stringValue(), "()");
+        Assert.assertEquals(returns[0].stringValue(), "");
     }
 
     @Test

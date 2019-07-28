@@ -224,6 +224,8 @@ const string XML_VALUE = "org/ballerinalang/jvm/values/XMLValue";
 const string XML_QNAME = "org/ballerinalang/jvm/values/XMLQName";
 const string FUTURE_VALUE = "org/ballerinalang/jvm/values/FutureValue";
 const string TYPEDESC_VALUE = "org/ballerinalang/jvm/values/TypedescValue";
+const string HANDLE_VALUE = "org/ballerinalang/jvm/values/HandleValue";
+const string LOCK_VALUE = "org/ballerinalang/jvm/BLock";
 
 const string OBJECT = "java/lang/Object";
 const string MATH = "java/lang/Math";
@@ -232,11 +234,12 @@ const string LINKED_HASH_MAP = "java/util/LinkedHashMap";
 const string ARRAY_LIST = "java/util/ArrayList";
 const string LIST = "java/util/List";
 const string TYPE_CHECKER = "org/ballerinalang/jvm/TypeChecker";
-const string SCHEDULER = "org/ballerinalang/jvm/Scheduler";
+const string SCHEDULER = "org/ballerinalang/jvm/scheduling/Scheduler";
 const string JSON_UTILS = "org/ballerinalang/jvm/JSONUtils";
-const string STRAND = "org/ballerinalang/jvm/Strand";
+const string STRAND = "org/ballerinalang/jvm/scheduling/Strand";
 const string TYPE_CONVERTER = "org/ballerinalang/jvm/TypeConverter";
 const string LIST_UTILS = "org/ballerinalang/jvm/Lists";
+const string STRAND_STATE = "org/ballerinalang/jvm/scheduling/State";
 
 const string FUNCTION_POINTER = "org/ballerinalang/jvm/values/FPValue";
 const string FUNCTION = "java/util/function/Function";
@@ -248,16 +251,17 @@ const string VALUE_CREATOR = "org/ballerinalang/jvm/values/ValueCreator";
 const string XML_FACTORY = "org/ballerinalang/jvm/XMLFactory";
 const string SET = "java/util/Set";
 const string LINKED_HASH_SET = "java/util/LinkedHashSet";
-const string WD_CHANNELS = "org/ballerinalang/jvm/WDChannels";
-const string WORKER_DATA_CHANNEL = "org/ballerinalang/jvm/WorkerDataChannel";
+const string WD_CHANNELS = "org/ballerinalang/jvm/scheduling/WDChannels";
+const string WORKER_DATA_CHANNEL = "org/ballerinalang/jvm/scheduling/WorkerDataChannel";
 const string CHANNEL_DETAILS = "org/ballerinalang/jvm/values/ChannelDetails";
-const string WORKER_UTILS = "org/ballerinalang/jvm/WorkerUtils";
+const string WORKER_UTILS = "org/ballerinalang/jvm/scheduling/WorkerUtils";
 const string LONG_STREAM = "java/util/stream/LongStream";
 const string MAP_UTILS = "org/ballerinalang/jvm/MapUtils";
 const string BAL_ERRORS = "org/ballerinalang/jvm/BallerinaErrors";
 const string RUNTIME_UTILS = "org/ballerinalang/jvm/util/RuntimeUtils";
 const string ARGUMENT_PARSER = "org/ballerinalang/jvm/util/ArgumentParser";
 const string LAUNCH_UTILS = "org/ballerinalang/jvm/launch/LaunchUtils";
+const string MATH_UTILS = "org/ballerinalang/jvm/MathUtils";
 
 // types related classes
 const string BTYPE = "org/ballerinalang/jvm/types/BType";
@@ -273,7 +277,7 @@ const string SERVICE_TYPE = "org/ballerinalang/jvm/types/BServiceType";
 const string ERROR_TYPE = "org/ballerinalang/jvm/types/BErrorType";
 const string TUPLE_TYPE = "org/ballerinalang/jvm/types/BTupleType";
 const string FUNCTION_TYPE = "org/ballerinalang/jvm/types/BFunctionType";
-const string TYPEDESC_TYPE = "org/ballerinalang/jvm/types/BTypedesc";
+const string TYPEDESC_TYPE = "org/ballerinalang/jvm/types/BTypedescType";
 const string BFIELD = "org/ballerinalang/jvm/types/BField";
 const string ATTACHED_FUNCTION = "org/ballerinalang/jvm/types/AttachedFunction";
 const string FINITE_TYPE = "org/ballerinalang/jvm/types/BFiniteType";
@@ -304,7 +308,7 @@ const string BAL_EXTENSION = ".bal";
 const string WINDOWS_PATH_SEPERATOR = "\\";
 const string UNIX_PATH_SEPERATOR = "/";
 const string BALLERINA = "ballerina";
-const string BUILT_IN_PACKAGE_NAME = "builtin";
+const string BUILT_IN_PACKAGE_NAME = "lang.annotations";
 
 
 // scheduler related constants

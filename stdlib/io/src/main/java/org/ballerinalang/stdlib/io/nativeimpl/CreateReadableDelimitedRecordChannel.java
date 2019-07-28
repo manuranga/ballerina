@@ -17,7 +17,7 @@
 
 package org.ballerinalang.stdlib.io.nativeimpl;
 
-import org.ballerinalang.jvm.Strand;
+import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.util.exceptions.BallerinaException;
 import org.ballerinalang.jvm.values.ObjectValue;
 import org.ballerinalang.model.types.TypeKind;
@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
                 @Argument(name = "fieldSeparator", type = TypeKind.STRING)},
         returnType = {@ReturnType(type = TypeKind.OBJECT, structType = "ReadableRecordChannel",
                 structPackage = "ballerina/io"),
-                @ReturnType(type = TypeKind.RECORD, structType = "IOError", structPackage = "ballerina/io")},
+                @ReturnType(type = TypeKind.RECORD, structType = "Error", structPackage = "ballerina/io")},
         isPublic = true
 )
 public class CreateReadableDelimitedRecordChannel {

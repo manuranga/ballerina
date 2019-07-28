@@ -17,7 +17,7 @@
 */
 package org.ballerinalang.jvm.transactions;
 
-import org.ballerinalang.jvm.Strand;
+import org.ballerinalang.jvm.scheduling.Strand;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -87,9 +87,8 @@ public class TransactionLocalContext {
         return this.protocol;
     }
 
-    public void beginTransactionBlock(String localTransactionID, int retryCount) {
+    public void beginTransactionBlock(String localTransactionID) {
         transactionBlockIdStack.push(localTransactionID);
-        allowedTransactionRetryCounts.put(localTransactionID, retryCount);
         currentTransactionRetryCounts.put(localTransactionID, 0);
         ++transactionLevel;
     }

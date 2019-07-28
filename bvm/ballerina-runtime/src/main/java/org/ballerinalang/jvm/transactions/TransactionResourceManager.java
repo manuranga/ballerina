@@ -17,7 +17,7 @@
  */
 package org.ballerinalang.jvm.transactions;
 
-import org.ballerinalang.jvm.Strand;
+import org.ballerinalang.jvm.scheduling.Strand;
 import org.ballerinalang.jvm.util.exceptions.BallerinaException;
 import org.ballerinalang.jvm.values.FPValue;
 import org.slf4j.Logger;
@@ -127,7 +127,7 @@ public class TransactionResourceManager {
         TransactionLocalContext transactionLocalContext = strand.getLocalTransactionContext();
         registerCommittedFunction(transactionBlockId, committed);
         registerAbortedFunction(transactionBlockId, aborted);
-        transactionLocalContext.beginTransactionBlock(transactionBlockId, 1);
+        transactionLocalContext.beginTransactionBlock(transactionBlockId);
     }
 
     /**
