@@ -65,7 +65,6 @@ task createOldBirJar(type: Exec) {
     dependsOn configurations.balo
     dependsOn convertDuplicateSrcToProject
     workingDir "$buildDir/duplicate-src"
-    dependsOn deleteBirJar
     dependsOn compileJava
 
     environment 'BALLERINA_NATIVE_MAP': "$buildDir/classes/java/main/META-INF/this.map.json"
@@ -79,6 +78,7 @@ task createOldBirJar(type: Exec) {
             } else {
                 commandLine 'sh', new File(it, '/bin/jballerina'), 'build', '--skiptests', project.ext.moduleName
             }
+            println commandLine
         }
     }
 
@@ -124,3 +124,10 @@ compileJava {
     }
 }
 
+createJavadoc {
+    enabled = false
+}
+
+spotbugsMain {
+    enabled = false
+}

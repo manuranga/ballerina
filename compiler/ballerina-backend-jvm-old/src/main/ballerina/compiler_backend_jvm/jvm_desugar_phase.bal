@@ -59,7 +59,7 @@ public function rewriteRecordInits(bir:TypeDef?[] typeDefs) {
         if (recordType is bir:BRecordType) {
             bir:Function?[] attachFuncs = <bir:Function?[]> typeDef.attachedFuncs;
             foreach var func in attachFuncs {
-                rewriteRecordInitFunction(<bir:Function>func, recordType);
+                rewriteRecordInitFunction(<bir:Function> func, recordType);
             }
         }
     }

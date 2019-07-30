@@ -43,20 +43,17 @@ dependencies {
     pack1 group: 'org.ballerinalang', name: 'ballerina-packerina', version: project.bootstrappedOn
     pack1 'org.ow2.asm:asm:6.2.1'
 
-    pack2native project(path: ':ballerina-bir-old', configuration: 'default')
-    pack2birJar project(path: ':ballerina-bir-old', configuration: 'oldBirJar')
     pack2bir project(path: ':ballerina-bir-old', configuration: 'oldBir')
     pack2bir project(path: ':ballerina-bir-old', configuration: 'nativeMap')
-    pack2native project(path: ':ballerina-jvm-old', configuration: 'default')
-    pack2birJar project(path: ':ballerina-jvm-old', configuration: 'oldBirJar')
     pack2bir project(path: ':ballerina-jvm-old', configuration: 'oldBir')
     pack2bir project(path: ':ballerina-jvm-old', configuration: 'nativeMap')
 
-//    pack2 project(path: ':ballerina-jvm-old', configuration: 'balo')
-//    pack2native project(path: ':ballerina-jvm-old', configuration: 'default')
-
     pack3birJar project(path: ':ballerina-backend-jvm-old', configuration: 'oldBirJar')
     pack3native project(path: ':ballerina-backend-jvm-old', configuration: 'default')
+    pack3native project(path: ':ballerina-bir-old', configuration: 'default')
+    pack3birJar project(path: ':ballerina-bir-old', configuration: 'oldBirJar')
+    pack3native project(path: ':ballerina-jvm-old', configuration: 'default')
+    pack3birJar project(path: ':ballerina-jvm-old', configuration: 'oldBirJar')
 }
 
 
@@ -104,10 +101,10 @@ task createPack1() {
 task duplicatePack1AsPack2(type: Copy) {
     dependsOn createPack1
     from bootBalHome(0)
-    exclude "**/bre/lib/bir.jar"
-    exclude "**/bre/lib/jvm.jar"
-    exclude "**/bre/lib/ballerina-bir*.jar"
-    exclude "**/bre/lib/ballerina-jvm*.jar"
+//    exclude "**/bre/lib/bir.jar"
+//    exclude "**/bre/lib/jvm.jar"
+//    exclude "**/bre/lib/ballerina-bir*.jar"
+//    exclude "**/bre/lib/ballerina-jvm*.jar"
     into bootBalHome(2)
 }
 
@@ -160,9 +157,8 @@ task copyNativeForPack2(type: Copy) {
 }
 
 task createPack2() {
+    dependsOn duplicatePack1AsPack2
     dependsOn copyBirForPack2
-    dependsOn copyBirJarForPack2
-    dependsOn copyNativeForPack2
     dependsOn createFakeBalos
 }
 
@@ -173,16 +169,6 @@ task duplicatePack2AsPack3(type: Copy) {
     exclude "**/bre/lib/ballerina-backend-jvm*.jar"
     into bootBalHome(3)
 }
-
-//task copyBalxForPack3(type: Copy) {
-//    dependsOn duplicatePack2AsPack3
-//    dependsOn configurations.pack3
-//
-//    from configurations.pack3 {
-//        include '*.balx'
-//    }
-//    into bootBalHome(3) + "/bin"
-//}
 
 task copyBirJarForPack3(type: Copy) {
     dependsOn duplicatePack2AsPack3

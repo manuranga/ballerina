@@ -71,7 +71,7 @@ public type PackageParser object {
             string name = self.reader.readStringCpRef();
             int flags = self.reader.readInt32();
 
-            skipMarkDownDocAttachement(self.reader);
+            skipMarkDownDocAttachement(self.reader); 
 
             var typeValue = self.reader.readTypeCpRef();
 
@@ -93,16 +93,17 @@ public type PackageParser object {
         VarKind kind = parseVarKind(self.reader);
         var typeValue = self.reader.readTypeCpRef();
         var name = self.reader.readStringCpRef();
-        var metaVarName = self.reader.readStringCpRef();
+        VariableDclMeta meta = {};
+        if (kind is ArgVarKind) {
+            meta.name = self.reader.readStringCpRef();
+        }
         var hasDefaultExpr = self.reader.readBoolean();
         FunctionParam dcl = {
             typeValue: typeValue,
             name: { value: name },
             kind: kind,
             hasDefaultExpr: hasDefaultExpr,
-            meta: {
-                name: metaVarName
-            }
+            meta: meta
         };
         return dcl;
     }
@@ -118,6 +119,7 @@ public type PackageParser object {
         // TODO: dhananjaya please remove
         return <@untainted> funcs;
     }
+
     private function parseInvokableType() returns BInvokableType {
         var functionType = self.reader.readTypeCpRef();
         if (functionType is BInvokableType) {
@@ -154,8 +156,8 @@ public type PackageParser object {
 
         int taintLength = self.reader.readInt64();
         _ = self.reader.readByteArray(<@untainted> taintLength); // read and ignore taint table
-
-        skipMarkDownDocAttachement(self.reader);
+        
+        skipMarkDownDocAttachement(self.reader); 
 
         var bodyLength = self.reader.readInt64(); // read and ignore function body length
         if (self.symbolsOnly) {
@@ -207,14 +209,15 @@ public type PackageParser object {
         var numLocalVars = self.reader.readInt32();
         while (count < numLocalVars) {
             var dcl = self.parseVariableDcl();
-            if (!(dcl.kind is TempVarKind)) {
+            if (dcl.kind is LocalVarKind || dcl.kind is ArgVarKind) {
                 dcl.meta.name = self.reader.readStringCpRef();
-            }
-            if (dcl.kind is LocalVarKind) {
-                var meta = dcl.meta;
-                meta.endBBID = self.reader.readStringCpRef();
-                meta.startBBID = self.reader.readStringCpRef();
-                meta.insOffset = self.reader.readInt32();
+                // local variables have visible range information as well
+                if (dcl.kind is LocalVarKind) {
+                    var meta = dcl.meta;
+                    meta.endBBID = self.reader.readStringCpRef();
+                    meta.startBBID = self.reader.readStringCpRef();
+                    meta.insOffset = self.reader.readInt32();
+                }
             }
             dcls[dcls.length()] = dcl;
             localVarMap[dcl.name.value] = dcl;
@@ -375,7 +378,7 @@ public type PackageParser object {
             i += 1;
         }
 
-        return typeRefs;
+        return <@untainted> typeRefs;
     }
 
     function parseTypeDef() returns TypeDef {
@@ -384,7 +387,7 @@ public type PackageParser object {
         int flags = self.reader.readInt32();
         int isLabel = self.reader.readInt8();
 
-        skipMarkDownDocAttachement(self.reader);
+        skipMarkDownDocAttachement(self.reader); 
 
         var bType = self.reader.readTypeCpRef();
         return { pos:pos, name: { value: name }, flags: flags, typeValue: bType, attachedFuncs: (), typeRefs : [] };
@@ -398,7 +401,7 @@ public type PackageParser object {
             var kind = parseVarKind(self.reader);
             string name = self.reader.readStringCpRef();
             int flags = self.reader.readInt32();
-            skipMarkDownDocAttachement(self.reader);
+            skipMarkDownDocAttachement(self.reader); 
             var typeValue = self.reader.readTypeCpRef();
             GlobalVariableDcl dcl = {kind:kind, name:{value:name}, typeValue:typeValue, flags:flags};
             globalVars[startIndex + i] = dcl;
@@ -504,7 +507,7 @@ public type PackageParser object {
 
 function skipMarkDownDocAttachement(BirChannelReader reader) {
     int docLength = reader.readInt32();
-    _ = reader.readByteArray(untaint docLength);
+    _ = reader.readByteArray(<@untainted> docLength);
 }
 
 function parseLiteralValue(BirChannelReader reader, BType bType) returns anydata {
@@ -523,7 +526,8 @@ function parseLiteralValue(BirChannelReader reader, BType bType) returns anydata
     } else if (bType is BTypeFloat) {
         value = reader.readFloatCpRef();
     } else {
-        error err = error("unsupported literal value type in annotation attachment value", err = {"type":bType});
+        record{| anydata|error...; |} detailMap = { 'type : bType };
+        error err = error("unsupported literal value type in annotation attachment value", err = detailMap);
         panic err;
     }
     return value;

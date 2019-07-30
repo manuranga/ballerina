@@ -81,6 +81,13 @@ task createBirJar(type: Exec) {
         }
     }
 
+    doLast {
+        if(!file("$buildDir/generated-bir-jar/${project.ext.moduleName}.jar").exists()){
+            println "$buildDir/generated-bir-jar/${project.ext.moduleName}.jar not created."
+            throw new GradleException("error in creating bir jar")
+        }
+    }
+
     inputs.files configurations.bir
     inputs.files configurations.birJarCompile
     inputs.dir "$buildDir/generated-bir"

@@ -23,7 +23,7 @@ type TerminatorGenerator object {
     bir:Package module;
     string currentPackageName;
 
-    public function __init(jvm:MethodVisitor mv, BalToJVMIndexMap indexMap, LabelGenerator labelGen, 
+    public function __init(jvm:MethodVisitor mv, BalToJVMIndexMap indexMap, LabelGenerator labelGen,
                             ErrorHandlerGenerator errorGen, bir:Package module) {
         self.mv = mv;
         self.indexMap = indexMap;
@@ -90,7 +90,7 @@ type TerminatorGenerator object {
 
         self.mv.visitJumpInsn(GOTO, gotoLabel);
     }
-
+    
     function genFieldLockTerm(bir:FieldLock lockIns, string funcName, int localVarOffset, bir:BType? attachedType) {
         jvm:Label gotoLabel = self.labelGen.getLabel(funcName + lockIns.lockBB.id.value);
         string lockClass = "L" + LOCK_VALUE + ";";
@@ -137,7 +137,7 @@ type TerminatorGenerator object {
                     var lockName = computeLockNameFromString(fieldName);
                     self.loadVar(localLock.localVar);
                     self.mv.visitFieldInsn(GETFIELD, className, lockName, lockClass);
-                    self.mv.visitMethodInsn(INVOKEVIRTUAL, LOCK_VALUE, "unlock", "()V", false);
+                    self.mv.visitMethodInsn(INVOKEVIRTUAL, LOCK_VALUE, "unlock", "()V", false);               
                 }
             } else {
                 error err = error( "JVM field unlock generation is not supported for type " +
@@ -146,12 +146,12 @@ type TerminatorGenerator object {
             }
 
         }
-
+    
         self.mv.visitJumpInsn(GOTO, gotoLabel);
     }
 
     function genReturnTerm(bir:Return returnIns, int returnVarRefIndex, bir:Function func) {
-        bir:BType bType = func.typeValue.retType;
+        bir:BType bType = <bir:BType> func.typeValue.retType;
         if (bType is bir:BTypeNil) {
             self.mv.visitInsn(RETURN);
         } else if (bType is bir:BTypeInt) {
@@ -339,15 +339,16 @@ type TerminatorGenerator object {
         self.genStaticCall(callIns, orgName, moduleName, localVarOffset, methodName, methodName);
     }
 
-    private function genBuiltinTypeAttachedFuncCall(bir:Call callIns, string orgName, string moduleName, 
+    private function genBuiltinTypeAttachedFuncCall(bir:Call callIns, string orgName, string moduleName,
                                                     int localVarOffset) {
         string methodLookupName = callIns.name.value;
-        int index = methodLookupName.indexOf(".") + 1;
+        int? optionalIndex = methodLookupName.indexOf(".");
+        int index = optionalIndex is int ? optionalIndex + 1 : 0;
         string methodName = methodLookupName.substring(index, methodLookupName.length());
         self.genStaticCall(callIns, orgName, moduleName, localVarOffset, methodName, methodLookupName);
     }
 
-    private function genStaticCall(bir:Call callIns, string orgName, string moduleName, int localVarOffset, 
+    private function genStaticCall(bir:Call callIns, string orgName, string moduleName, int localVarOffset,
                                    string methodName, string methodLookupName) {
         // load strand
         self.mv.visitVarInsn(ALOAD, localVarOffset);

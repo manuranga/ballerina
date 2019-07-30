@@ -1137,7 +1137,7 @@ function loadFiniteType(jvm:MethodVisitor mv, bir:BFiniteType finiteType) {
 
         if (valueType is bir:BTypeNil) {
             mv.visitInsn(ACONST_NULL);
-        } else if (value is bir:Decimal) { 
+        } else if (value is bir:Decimal) {
             // do nothing
         } else {
             mv.visitLdcInsn(value);
