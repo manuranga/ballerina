@@ -101,10 +101,6 @@ task createPack1() {
 task duplicatePack1AsPack2(type: Copy) {
     dependsOn createPack1
     from bootBalHome(0)
-//    exclude "**/bre/lib/bir.jar"
-//    exclude "**/bre/lib/jvm.jar"
-//    exclude "**/bre/lib/ballerina-bir*.jar"
-//    exclude "**/bre/lib/ballerina-jvm*.jar"
     into bootBalHome(2)
 }
 
@@ -167,6 +163,10 @@ task duplicatePack2AsPack3(type: Copy) {
     from bootBalHome(2)
     exclude "**/bre/lib/compiler_backend_jvm.jar"
     exclude "**/bre/lib/ballerina-backend-jvm*.jar"
+    exclude "**/bre/lib/bir.jar"
+    exclude "**/bre/lib/jvm.jar"
+    exclude "**/bre/lib/ballerina-bir*.jar"
+    exclude "**/bre/lib/ballerina-jvm*.jar"
     into bootBalHome(3)
 }
 

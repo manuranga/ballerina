@@ -74,9 +74,9 @@ task createOldBirJar(type: Exec) {
     doFirst {
         configurations.balo.each {
             if (OperatingSystem.current().isWindows()) {
-                commandLine 'cmd.exe', '/c', new File(it, '/bin/jballerina.bat'), 'build', '--skiptests', project.ext.moduleName
+                commandLine 'cmd.exe', '/c', new File(it, '/bin/ballerina.bat'), 'build', '--skiptests', project.ext.moduleName
             } else {
-                commandLine 'sh', new File(it, '/bin/jballerina'), 'build', '--skiptests', project.ext.moduleName
+                commandLine 'sh', new File(it, '/bin/ballerina'), 'build', '--skiptests', project.ext.moduleName
             }
             println commandLine
         }

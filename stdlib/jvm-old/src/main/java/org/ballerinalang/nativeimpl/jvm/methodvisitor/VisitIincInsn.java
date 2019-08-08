@@ -25,33 +25,26 @@ import org.ballerinalang.nativeimpl.jvm.ASMUtil;
 import org.ballerinalang.natives.annotations.Argument;
 import org.ballerinalang.natives.annotations.BallerinaFunction;
 import org.ballerinalang.natives.annotations.Receiver;
-import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 
+import static org.ballerinalang.model.types.TypeKind.INT;
 import static org.ballerinalang.model.types.TypeKind.OBJECT;
-import static org.ballerinalang.model.types.TypeKind.UNION;
 import static org.ballerinalang.nativeimpl.jvm.ASMUtil.JVM_PKG_PATH;
-import static org.ballerinalang.nativeimpl.jvm.ASMUtil.LABEL;
 import static org.ballerinalang.nativeimpl.jvm.ASMUtil.METHOD_VISITOR;
 
 /**
- * Native class for jvm try catch byte code creation.
- *
- * @since 0.995.0
+ * Native class for jvm method byte code creation.
  */
 @BallerinaFunction(
-        orgName = "ballerina",
-        packageName = "jvm",
-        functionName = "visitTryCatchBlock",
+        orgName = "ballerina", packageName = "jvm",
+        functionName = "visitIincInsn",
         receiver = @Receiver(type = OBJECT, structType = METHOD_VISITOR, structPackage = JVM_PKG_PATH),
         args = {
-                @Argument(name = "startLabel", type = OBJECT, structType = LABEL),
-                @Argument(name = "endLabel", type = OBJECT, structType = LABEL),
-                @Argument(name = "handlerLabel", type = OBJECT, structType = LABEL),
-                @Argument(name = "exceptionType", type = UNION)
+                @Argument(name = "variable", type = INT),
+                @Argument(name = "amount", type = INT)
         }
 )
-public class VisitTryCatchBlock extends BlockingNativeCallableUnit {
+public class VisitIincInsn extends BlockingNativeCallableUnit {
 
     @Override
     @Deprecated
@@ -59,12 +52,8 @@ public class VisitTryCatchBlock extends BlockingNativeCallableUnit {
         throw new UnsupportedOperationException("BVM Unsupported");
     }
 
-    public static void visitTryCatchBlock(Strand strand, ObjectValue oMv, ObjectValue oStartLabel,
-                                          ObjectValue oEndLabel, ObjectValue oHandlerLabel, Object exceptionType) {
+    public static void visitIincInsn(Strand strand, ObjectValue oMv, long variable, long amount) {
         MethodVisitor mv = ASMUtil.getRefArgumentNativeData(oMv);
-        Label startLabel = ASMUtil.getRefArgumentNativeData(oStartLabel);
-        Label endLabel = ASMUtil.getRefArgumentNativeData(oEndLabel);
-        Label handlerLabel = ASMUtil.getRefArgumentNativeData(oHandlerLabel);
-        mv.visitTryCatchBlock(startLabel, endLabel, handlerLabel, (String) exceptionType);
+        mv.visitIincInsn((int) variable, (int) amount);
     }
 }
