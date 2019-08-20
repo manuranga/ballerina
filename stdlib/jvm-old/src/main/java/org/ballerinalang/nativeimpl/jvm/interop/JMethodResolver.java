@@ -189,7 +189,7 @@ class JMethodResolver {
     private boolean isValidExpectedBType(Class<?> jParamType, BType bParamType, JMethodRequest jMethodRequest) {
         String jParamTypeName = jParamType.getTypeName();
         switch (bParamType.getTag()) {
-            case /*TypeTags.HANDLE_TAG*/ 36:
+            case TypeTags.HANDLE_TAG:
             case TypeTags.ANY_TAG:
             case TypeTags.ANYDATA_TAG:
                 return !jParamType.isPrimitive();
