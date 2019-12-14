@@ -477,7 +477,8 @@ public class BuildCommandTest extends CommandTest {
         }
     }
 
-    @Test(description = "Test Build Command in a Project which use dependency jar which include stored jar.")
+    @Test(enabled = false,
+          description = "Test Build Command in a Project which use dependency jar which include stored jar.")
     public void testBuildCommandWithStoredJarDependency() throws IOException {
         // Build the project
         String[] compileArgs = {"--all", "--skip-tests"};
