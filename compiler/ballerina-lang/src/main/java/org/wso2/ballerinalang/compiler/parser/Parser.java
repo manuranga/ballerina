@@ -28,6 +28,7 @@ import org.ballerinalang.model.TreeBuilder;
 import org.ballerinalang.model.elements.Flag;
 import org.ballerinalang.model.elements.PackageID;
 import org.ballerinalang.model.tree.CompilationUnitNode;
+import org.ballerinalang.model.tree.Node;
 import org.ballerinalang.repository.CompilerInput;
 import org.ballerinalang.repository.PackageSource;
 import org.wso2.ballerinalang.compiler.PackageCache;
@@ -51,6 +52,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * This class is responsible for parsing Ballerina source files.
@@ -66,6 +73,7 @@ public class Parser {
     private PackageCache pkgCache;
     private ParserCache parserCache;
     private NodeCloner nodeCloner;
+    public BLangNodeTransformer bLangCompUnitGen;
 
     public static Parser getInstance(CompilerContext context) {
         Parser parser = context.get(PARSER_KEY);
@@ -140,10 +148,17 @@ public class Parser {
 
         // TODO We need a way to create a TextDocument from a byte[]
         TextDocument sourceText = TextDocuments.from(new String(code));
-        SyntaxTree syntaxTree = SyntaxTree.from(sourceText);
-        // TODO we need a ModulePart -> BLCompilationUnit converter
-        BLangNodeTransformer bLangCompUnitGen = new BLangNodeTransformer(this.context, diagnosticSource);
-        return (BLangCompilationUnit) bLangCompUnitGen.accept(syntaxTree.modulePart()).get(0);
+        bLangCompUnitGen = new BLangNodeTransformer(this.context, diagnosticSource);
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            SyntaxTree syntaxTree = executor.submit(() -> SyntaxTree.from(sourceText)).get(2, TimeUnit.SECONDS);
+            // TODO we need a ModulePart -> BLCompilationUnit converter
+            List<Node> accept = bLangCompUnitGen.accept(syntaxTree.modulePart());
+            return (BLangCompilationUnit) accept.get(0);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public BLangPackage parse(PackageSource pkgSource, Path sourceRootPath) {

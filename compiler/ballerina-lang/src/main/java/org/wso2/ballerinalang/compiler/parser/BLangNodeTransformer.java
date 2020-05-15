@@ -331,6 +331,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -360,7 +361,15 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
     private boolean isInLocalContext = false;
 
     public BLangNodeTransformer(CompilerContext context, BDiagnosticSource diagnosticSource) {
-        this.dlog = BLangDiagnosticLogHelper.getInstance(context);
+        this.dlog = new BLangDiagnosticLogHelper(new CompilerContext()) {
+            @Override
+            public void error(DiagnosticPos pos, DiagnosticCode code, Object... args) {
+            }
+
+            @Override
+            public void warning(DiagnosticPos pos, DiagnosticCode code, Object... args) {
+            }
+        }; //BLangDiagnosticLogHelper.getInstance(context);
         this.symTable = SymbolTable.getInstance(context);
         this.diagnosticSource = diagnosticSource;
         this.anonymousModelHelper = BLangAnonymousModelHelper.getInstance(context);
@@ -2667,7 +2676,9 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
     @Override
     protected BLangNode transformSyntaxNode(Node node) {
         // TODO: Remove this RuntimeException once all nodes covered
-        throw new RuntimeException("Node not supported: " + node.getClass().getSimpleName());
+//        throw new RuntimeException("Node not supported: " + node.getClass().getSimpleName());
+        this.unImplNodes.add(node.getClass().getSimpleName());
+        return null;
     }
 
     @Override

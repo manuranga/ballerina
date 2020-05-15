@@ -41,6 +41,7 @@ import org.wso2.ballerinalang.compiler.packaging.RepoHierarchyBuilder;
 import org.wso2.ballerinalang.compiler.packaging.RepoHierarchyBuilder.RepoNode;
 import org.wso2.ballerinalang.compiler.packaging.Resolution;
 import org.wso2.ballerinalang.compiler.packaging.converters.Converter;
+import org.wso2.ballerinalang.compiler.packaging.converters.FileSystemSourceInput;
 import org.wso2.ballerinalang.compiler.packaging.converters.URIDryConverter;
 import org.wso2.ballerinalang.compiler.packaging.repo.BinaryRepo;
 import org.wso2.ballerinalang.compiler.packaging.repo.BirRepo;
@@ -64,19 +65,33 @@ import org.wso2.ballerinalang.compiler.util.ProjectDirs;
 import org.wso2.ballerinalang.compiler.util.diagnotic.BLangDiagnosticLogHelper;
 import org.wso2.ballerinalang.util.RepoUtils;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -99,11 +114,13 @@ public class PackageLoader {
 
     private static final CompilerContext.Key<PackageLoader> PACKAGE_LOADER_KEY =
             new CompilerContext.Key<>();
+    public static final int GOOGLE_SHEET_LIMIT = 50000;
     private final RepoHierarchy repos;
     private final boolean offline;
     private final boolean testEnabled;
     private final boolean lockEnabled;
     private final boolean newParserEnabled;
+    private final Path TEST_BASE = Paths.get("/Users/manu/checkout/ballerina-lang/tests/jballerina-unit-test/src/test/resources/test-src");
 
     /**
      * Manifest of the current project.
@@ -494,17 +511,158 @@ public class PackageLoader {
     }
 
     private BLangPackage parse(PackageID pkgId, PackageSource pkgSource) {
-        BLangPackage packageNode;
-        if (this.newParserEnabled) {
-            packageNode = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
-        } else {
-            packageNode = this.parser.parse(pkgSource, this.sourceDirectory.getPath());
+
+        BLangPackage packageNode = this.parser.parse(pkgSource, this.sourceDirectory.getPath());
+        String exception = null;
+        boolean timeout = false;
+        boolean parserError = false;
+        String diff = null;
+        try {
+
+            BLangPackage packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
+            String oldAST = TransformerHelper.generateJSONStr(packageNode);
+            String newAST = TransformerHelper.generateJSONStr(packageNodeNew);
+
+            if (!oldAST.equals(newAST)) {
+                Path oldF = Files.createTempFile("", "");
+                Path newF = Files.createTempFile("", "");
+                Files.write(oldF, oldAST.getBytes());
+                Files.write(newF, newAST.getBytes());
+                diff = diff(oldF, newF);
+                Files.deleteIfExists(oldF);
+                Files.deleteIfExists(newF);
+            }
+
+        } catch (Exception e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof TimeoutException) {
+                timeout = true;
+            } else if (cause instanceof ExecutionException) {
+                parserError = true;
+                exception = serializeError(cause.getCause(), 6);
+            } else {
+                exception = serializeError(e, Thread.currentThread().getStackTrace().length);
+            }
         }
+
+
+        FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
+        Path path = compilerInput.getPath();
+        Path subpath = TEST_BASE.relativize(path.toAbsolutePath());//path.toAbsolutePath().subpath(TEST_BASE.getNameCount(), path.getNameCount());
+        String cmd = subpath + ", ";
+
+        if (parser.bLangCompUnitGen.unImplNodes.size() > 0) {
+            cmd += quote("un impl nodes in transformer") + ", ";
+            cmd += quote(String.join("\n", parser.bLangCompUnitGen.unImplNodes));
+        } else if (parserError) {
+            cmd += quote("parser error") + ", ";
+            cmd += quote(exception);
+        } else if (exception != null) {
+            cmd += quote("transformer error") + ", ";
+            cmd += quote(exception);
+        } else if (timeout) {
+            cmd += quote("parser timeout") + ", ";
+            cmd += quote("");
+        } else if (diff != null) {
+            cmd += quote("diff") + ", ";
+            String diffQ = quote(diff);
+            if (diffQ.length() > GOOGLE_SHEET_LIMIT) {
+                diffQ = diffQ.substring(0, GOOGLE_SHEET_LIMIT - 2);
+                diffQ += " \"";
+            }
+            cmd += diffQ;
+        } else {
+            cmd += quote("pass") + ", ";
+            cmd += quote("");
+        }
+
+        cmd += "\n";
+        try {
+            Files.write(Paths.get("/Users/manu/checkout/ballerina-lang/result.csv"),
+                        cmd.getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+
         packageNode.packageID = pkgId;
         // Set the same packageId to the testable node
         packageNode.getTestablePkgs().forEach(testablePkg -> testablePkg.packageID = pkgId);
         this.packageCache.put(pkgId, packageNode);
         return packageNode;
+    }
+
+    private String diff(Path oldF, Path newF) {
+        Process process = null;
+        try {
+//            System.out.println("git --no-pager diff -b " + oldF + " " + newF);
+            process = new ProcessBuilder("git", "--no-pager", "diff", "--minimal", "-b",
+                                         oldF.toString(), newF.toString()).start();
+            InputStream is = process.getInputStream();
+
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            try {
+                Future<String> task = executor.submit(() -> streamGobbler(is));
+                process.waitFor();
+                return task.get(2, TimeUnit.SECONDS);
+
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "<error>";
+    }
+
+    private String streamGobbler(InputStream is) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        StringBuilder result = new StringBuilder();
+        boolean flag = false;
+        reader.readLine();
+        reader.readLine();
+        reader.readLine();
+        reader.readLine();
+        String lineBefore = "";
+        for (String line; (line = reader.readLine()) != null; ) {
+            if (lineBefore.startsWith("-") && line.startsWith("-") ||
+                lineBefore.startsWith("+") && line.startsWith("+")) {
+                result.append(line.substring(1).trim());
+            } else {
+                result.append(flag ? "\n" : "").append(line);
+            }
+            lineBefore = line;
+            flag = true;
+        }
+        return result.toString();
+    }
+
+    private String serializeError(Throwable e, int i) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        pw.println(e.getClass().getName() + ": " + e.getMessage());
+        printStackTrace(e.getStackTrace(), pw, e.getStackTrace().length - i);
+        return sw.toString();
+    }
+
+    public static void printStackTrace(StackTraceElement[] stackTrace, PrintWriter pw, int i) {
+        Map<String, Integer> stack = new LinkedHashMap<>();
+        for (int j = 0; j < stackTrace.length && j < i; j++) {
+            StackTraceElement stackTraceEl = stackTrace[j];
+            stack.compute(stackTraceEl.toString(), (s, fq) -> (fq == null) ? 1 : fq + 1);
+        }
+        for (Map.Entry<String, Integer> entry : stack.entrySet()) {
+            int value = entry.getValue();
+            if (value == 1) {
+                pw.println("    " + entry.getKey());
+            } else {
+                pw.println("[" + value + "] " + entry.getKey());
+            }
+        }
+    }
+
+    private String quote(String str) {
+        return "\"" + str.replace("\"", "\"\"") + "\"";
     }
 
     private BPackageSymbol loadCompiledPackageAndDefine(PackageID pkgId, PackageBinary pkgBinary) {
