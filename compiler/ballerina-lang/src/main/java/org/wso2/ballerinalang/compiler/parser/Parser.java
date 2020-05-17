@@ -51,13 +51,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * This class is responsible for parsing Ballerina source files.
@@ -74,6 +71,7 @@ public class Parser {
     private ParserCache parserCache;
     private NodeCloner nodeCloner;
     public BLangNodeTransformer bLangCompUnitGen;
+    public long time;
 
     public static Parser getInstance(CompilerContext context) {
         Parser parser = context.get(PARSER_KEY);
@@ -150,14 +148,198 @@ public class Parser {
         TextDocument sourceText = TextDocuments.from(new String(code));
         bLangCompUnitGen = new BLangNodeTransformer(this.context, diagnosticSource);
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        SyntaxTreeCallable work = new SyntaxTreeCallable(sourceText);
+        Thread thread = new Thread(work);
+        final Throwable[] errorHolder = new Throwable[1];
+        thread.setUncaughtExceptionHandler((t, e) -> errorHolder[0] = e);
+        long startTime = System.nanoTime();
+        thread.start();
+
         try {
-            SyntaxTree syntaxTree = executor.submit(() -> SyntaxTree.from(sourceText)).get(2, TimeUnit.SECONDS);
-            // TODO we need a ModulePart -> BLCompilationUnit converter
-            List<Node> accept = bLangCompUnitGen.accept(syntaxTree.modulePart());
-            return (BLangCompilationUnit) accept.get(0);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
+            thread.join(4000);
+        } catch (InterruptedException e) {
+            //ignore
+        }
+
+        if (!thread.isAlive()) {
+            if (errorHolder[0] != null) {
+                throw new ParserError(errorHolder[0]);
+            }
+            try {
+                List<Node> accept = bLangCompUnitGen.accept(work.result.modulePart());
+                this.time = work.getTime();
+                return (BLangCompilationUnit) accept.get(0);
+            } catch (Throwable t) {
+                throw new TransformerError(t);
+            }
+        } else {
+
+            List<StackTraceElement[]> traces = new ArrayList<>();
+            StackTraceElement[] trace = thread.getStackTrace();
+            int maxTimeToSpend = 60 * 5;
+
+            int i = 0;
+            boolean goodToLoop = true;
+            int maxTracesToAnalyze = 30;
+            while (goodToLoop) {
+                boolean growing = true;
+                while (growing && goodToLoop) {
+                    sleepSafely(1000);
+                    i++;
+
+                    StackTraceElement[] newTrace = thread.getStackTrace();
+                    if (newTrace.length < trace.length) {
+                        growing = false;
+                    }
+                    trace = newTrace;
+                    goodToLoop = thread.isAlive() && i < maxTimeToSpend && traces.size() < maxTracesToAnalyze;
+                }
+                if (trace.length > 0) {
+                    traces.add(trace);
+                }
+
+                boolean shirking = true;
+                while (shirking && goodToLoop) {
+                    sleepSafely(1000);
+                    i++;
+
+                    StackTraceElement[] newTrace = thread.getStackTrace();
+                    if (newTrace.length > trace.length) {
+                        shirking = false;
+                    }
+                    trace = newTrace;
+                    goodToLoop = thread.isAlive() && i < maxTimeToSpend && traces.size() < maxTracesToAnalyze;
+                }
+                if (trace.length > 0) {
+                    traces.add(trace);
+                }
+            }
+
+
+            if (!thread.isAlive()) {
+                if (errorHolder[0] != null) {
+                    if (errorHolder[0] instanceof StackOverflowError) {
+                        traces.add(errorHolder[0].getStackTrace());
+                    } else {
+                        throw new ParserError(errorHolder[0]);
+                    }
+                } else {
+                    assert work.result != null;
+                    try {
+                        List<Node> accept = bLangCompUnitGen.accept(work.result.modulePart());
+                        this.time = work.getTime();
+                        return (BLangCompilationUnit) accept.get(0);
+                    } catch (Throwable t) {
+                        throw new TransformerError(t);
+                    }
+                }
+            }
+
+            traces.sort(Comparator.comparingInt(o -> o.length));
+
+            double sec = (double) (System.nanoTime() - startTime) / 1000000000;
+            String msg = "failed in : " + String.format("%.2f", sec) + "s, analyzed " +
+                         traces.size() + " stack traces, parser thread alive : " + thread.isAlive();
+            if (traces.size() > 1) {
+                int commonLength = calcCommonSuffixLength(traces);
+                StackTraceElement[] min = minBiggerThan(traces, commonLength);
+                int minCommonSuffixStart = min.length - commonLength - 1;
+                min = Arrays.copyOfRange(min, 0, minCommonSuffixStart + 10); // assumes min is at least 10 larger than min
+                throw new ParserTimeout(min, min[minCommonSuffixStart], msg);
+            } else {
+                StackTraceElement[] singleton = traces.get(0);
+                throw new ParserTimeout(singleton, singleton[0], msg);
+            }
+
+        }
+
+    }
+
+    private StackTraceElement[] minBiggerThan(List<StackTraceElement[]> traces, int atLeast) {
+        assert traces.size() > 0;
+        StackTraceElement[] trace = null;
+        for (int i = 0; i < traces.size(); i++) {
+            trace = traces.get(i);
+            if (trace.length > atLeast) {
+                break;
+            }
+        }
+        return trace;
+    }
+
+    private int calcCommonSuffixLength(List<StackTraceElement[]> traces) {
+        int i;
+        StackTraceElement[] min = traces.get(0);
+        for (i = 1; i < min.length; i++) {
+            StackTraceElement minEl = min[min.length - i];
+            for (int j = 1; j < traces.size(); j++) {
+                StackTraceElement[] trace = traces.get(j);
+                if (!minEl.equals(trace[trace.length - i])) {
+                    return i - 1;
+                }
+            }
+        }
+        return i - 1;
+    }
+
+    private void sleepSafely(int millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ex) {
+        }
+    }
+
+
+    public class ParserTimeout extends RuntimeException {
+        private final StackTraceElement[] stackTrace;
+        public StackTraceElement mostCommon;
+
+        public ParserTimeout(StackTraceElement[] stack, StackTraceElement mostCommon, String msg) {
+            super((msg));
+            this.stackTrace = stack;
+            this.mostCommon = mostCommon;
+        }
+
+        @Override
+        public StackTraceElement[] getStackTrace() {
+            return stackTrace;
+        }
+    }
+
+    public class ParserError extends RuntimeException {
+        public ParserError(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    public class TransformerError extends RuntimeException {
+        public TransformerError(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    private static class SyntaxTreeCallable extends Thread {
+        final TextDocument sourceText;
+        SyntaxTree result;
+        private long startTime = -1;
+        private long endTime = -1;
+
+        public SyntaxTreeCallable(TextDocument sourceText) {
+            this.sourceText = sourceText;
+        }
+
+        @Override
+        public void run() {
+            this.startTime = System.nanoTime();
+            result = SyntaxTree.from(sourceText);
+            this.endTime = System.nanoTime();
+        }
+
+        long getTime() {
+            assert startTime > 0 && endTime > 0;
+            assert result != null;
+            return endTime - startTime;
         }
     }
 

@@ -70,8 +70,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -115,6 +113,7 @@ public class PackageLoader {
     private static final CompilerContext.Key<PackageLoader> PACKAGE_LOADER_KEY =
             new CompilerContext.Key<>();
     public static final int GOOGLE_SHEET_LIMIT = 50000;
+    public static final String ELLIPSIS = "\n...\"";
     private final RepoHierarchy repos;
     private final boolean offline;
     private final boolean testEnabled;
@@ -516,6 +515,7 @@ public class PackageLoader {
         String exception = null;
         boolean timeout = false;
         boolean parserError = false;
+        boolean transformerError = false;
         String diff = null;
         try {
 
@@ -533,46 +533,59 @@ public class PackageLoader {
                 Files.deleteIfExists(newF);
             }
 
+        } catch (Parser.ParserTimeout e) {
+            timeout = true;
+            String mostCommon = e.mostCommon.toString();
+            exception = serializeError(e, 0).replace(" " + mostCommon, "*>" + mostCommon) + "...";
+        } catch (Parser.ParserError e) {
+            parserError = true;
+            exception = serializeError(e.getCause(), 6);
+        } catch (Parser.TransformerError e) {
+            transformerError = true;
+            exception = serializeError(e, Thread.currentThread().getStackTrace().length);
         } catch (Exception e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof TimeoutException) {
-                timeout = true;
-            } else if (cause instanceof ExecutionException) {
-                parserError = true;
-                exception = serializeError(cause.getCause(), 6);
-            } else {
-                exception = serializeError(e, Thread.currentThread().getStackTrace().length);
-            }
+            exception = serializeError(e, Thread.currentThread().getStackTrace().length);
         }
 
 
         FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
         Path path = compilerInput.getPath();
-        Path subpath = TEST_BASE.relativize(path.toAbsolutePath());//path.toAbsolutePath().subpath(TEST_BASE.getNameCount(), path.getNameCount());
+        Path subpath = TEST_BASE.relativize(path.toAbsolutePath());
         String cmd = subpath + ", ";
 
+        long timeInMs = parser.time / 1000000;
         if (parser.bLangCompUnitGen.unImplNodes.size() > 0) {
             cmd += quote("un impl nodes in transformer") + ", ";
+            cmd += timeInMs + ", ";
             cmd += quote(String.join("\n", parser.bLangCompUnitGen.unImplNodes));
         } else if (parserError) {
             cmd += quote("parser error") + ", ";
-            cmd += quote(exception);
-        } else if (exception != null) {
-            cmd += quote("transformer error") + ", ";
+            cmd += quote("n/a") + ", ";
             cmd += quote(exception);
         } else if (timeout) {
             cmd += quote("parser timeout") + ", ";
-            cmd += quote("");
+            cmd += quote("n/a") + ", ";
+            cmd += quote(exception);
+        } else if (transformerError) {
+            cmd += quote("transformer error") + ", ";
+            cmd += timeInMs + ", ";
+            cmd += quote(exception);
+        } else if (exception != null) {
+            cmd += quote("unknown error") + ", ";
+            cmd += quote("n/a") + ", ";
+            cmd += quote(exception);
         } else if (diff != null) {
             cmd += quote("diff") + ", ";
+            cmd += timeInMs + ", ";
             String diffQ = quote(diff);
             if (diffQ.length() > GOOGLE_SHEET_LIMIT) {
-                diffQ = diffQ.substring(0, GOOGLE_SHEET_LIMIT - 2);
-                diffQ += " \"";
+                diffQ = diffQ.substring(0, GOOGLE_SHEET_LIMIT - ELLIPSIS.length());
+                diffQ += ELLIPSIS;
             }
             cmd += diffQ;
         } else {
             cmd += quote("pass") + ", ";
+            cmd += timeInMs + ", ";
             cmd += quote("");
         }
 
@@ -638,15 +651,68 @@ public class PackageLoader {
     }
 
     private String serializeError(Throwable e, int i) {
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        pw.println(e.getClass().getName() + ": " + e.getMessage());
-        printStackTrace(e.getStackTrace(), pw, e.getStackTrace().length - i);
-        return sw.toString();
+        return e.getClass().getName() + ": " + e.getMessage() + "\n" +
+               printStackTrace(e.getStackTrace(), e.getStackTrace().length - i);
     }
 
-    public static void printStackTrace(StackTraceElement[] stackTrace, PrintWriter pw, int i) {
+    public static String printStackTraceNew(StackTraceElement[] stackTrace, int i) {
+        StringBuilder sb = new StringBuilder();
+        for (int subSqStart = 0; subSqStart < stackTrace.length; subSqStart++) {
+            for (int subSqEnd = subSqStart + 6; subSqEnd < stackTrace.length; subSqEnd++) {
+
+                int score = score(stackTrace, subSqStart, subSqEnd, subSqEnd + 1);
+
+//                int score = 0;
+//
+//
+//                score = Math.max(score(), 1 + socre());
+//
+//                for (int matchStart = subSqEnd + 1; matchStart < stackTrace.length; matchStart++) {
+//                    score += isMatch(stackTrace, subSqStart, subSqEnd, matchStart);
+//                }
+                if (score > 0 && (subSqEnd - subSqStart) > 10) {
+                    System.out.println(((subSqEnd - subSqStart) * score) + " " + subSqStart + "-" + subSqEnd + " " + score);
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+
+    private static int score(StackTraceElement[] stackTrace, int subSqStart, int subSqEnd, int j) {
+        int mtachEnd = j + (subSqEnd - subSqStart);
+        if (mtachEnd == stackTrace.length) {
+            isMatch(stackTrace, subSqStart, subSqEnd, j);
+        } else if (mtachEnd > stackTrace.length) {
+            return 0;
+        }
+
+        return Math.max(score(stackTrace, subSqStart, subSqEnd, j + 1),
+                        1 + score(stackTrace, subSqStart, subSqEnd, j + (subSqEnd - subSqStart)));
+    }
+
+    private static int isMatch(StackTraceElement[] stackTrace, int subSqStart, int subSqEnd, int j) {
+        for (int k = j; k < stackTrace.length && k < j + subSqEnd - subSqStart; k++) {
+            if (!stackTrace[k].equals(stackTrace[subSqStart + (k - j)])) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    public static String printStackTracePlain(StackTraceElement[] stackTrace) {
+        StringBuilder sb = new StringBuilder();
+        for (int j = 0; j < stackTrace.length; j++) {
+            StackTraceElement stackTraceEl = stackTrace[j];
+            sb.append(stackTraceEl);
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    public static String printStackTrace(StackTraceElement[] stackTrace, int i) {
         Map<String, Integer> stack = new LinkedHashMap<>();
+        StringBuilder sb = new StringBuilder();
         for (int j = 0; j < stackTrace.length && j < i; j++) {
             StackTraceElement stackTraceEl = stackTrace[j];
             stack.compute(stackTraceEl.toString(), (s, fq) -> (fq == null) ? 1 : fq + 1);
@@ -654,11 +720,13 @@ public class PackageLoader {
         for (Map.Entry<String, Integer> entry : stack.entrySet()) {
             int value = entry.getValue();
             if (value == 1) {
-                pw.println("    " + entry.getKey());
+                sb.append("    " + entry.getKey());
             } else {
-                pw.println("[" + value + "] " + entry.getKey());
+                sb.append("[" + value + "] " + entry.getKey());
             }
+            sb.append("\n");
         }
+        return sb.toString();
     }
 
     private String quote(String str) {
