@@ -37,6 +37,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.tree.BLangAnnotation;
 import org.wso2.ballerinalang.compiler.tree.BLangErrorVariable;
 import org.wso2.ballerinalang.compiler.tree.BLangFunction;
+import org.wso2.ballerinalang.compiler.tree.BLangIdentifier;
 import org.wso2.ballerinalang.compiler.tree.BLangNode;
 import org.wso2.ballerinalang.compiler.tree.BLangRecordVariable;
 import org.wso2.ballerinalang.compiler.tree.BLangSimpleVariable;
@@ -52,7 +53,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -118,8 +121,35 @@ public class TransformerHelper {
         return relativeFilePath.startsWith("tests" + File.separator);
     }
 
+
+    protected static JsonElement canonicalize(JsonElement src) {
+        if (src instanceof JsonArray) {
+            // Canonicalize each element of the array
+            JsonArray srcArray = (JsonArray) src;
+            JsonArray result = new JsonArray();
+            for (int i = 0; i < srcArray.size(); i++) {
+                result.add(canonicalize(srcArray.get(i)));
+            }
+            return result;
+        } else if (src instanceof JsonObject) {
+            // Sort the attributes by name, and the canonicalize each element of the object
+            JsonObject srcObject = (JsonObject) src;
+            JsonObject result = new JsonObject();
+            TreeSet<String> attributes = new TreeSet<>();
+            for (Map.Entry<String, JsonElement> entry : srcObject.entrySet()) {
+                attributes.add(entry.getKey());
+            }
+            for (String attribute : attributes) {
+                result.add(attribute, canonicalize(srcObject.get(attribute)));
+            }
+            return result;
+        } else {
+            return src;
+        }
+    }
+
     public static String generateJSONStr(Node node) {
-        return GSON.toJson(generateJSON(node));
+        return GSON.toJson(canonicalize(generateJSON(node)));
     }
 
     public static JsonElement generateJSON(Node node) {
@@ -213,6 +243,13 @@ public class TransformerHelper {
                 prop = m.invoke(node);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException("Error occurred while generating JSON", e);
+            }
+
+            if (node instanceof BLangIdentifier && "value".equals(jsonName)) {
+                String s = String.valueOf(prop);
+                if (s.startsWith("$lambda$") && Character.isDigit(s.charAt(8))) {
+                    prop = "$lambda$<n>";
+                }
             }
 
             /* Literal class - This class is escaped in backend to address cases like "ss\"" and 8.0 and null */
