@@ -522,6 +522,7 @@ public class PackageLoader {
         boolean parserError = false;
         boolean transformerError = false;
         String diff = null;
+        boolean isIdea = System.getProperty("org.gradle.test.worker") == null;
         try {
             BLangPackage packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
             String oldAST = TransformerHelper.generateJSONStr(packageNode);
@@ -534,8 +535,11 @@ public class PackageLoader {
                 Files.createDirectories(resolve);
                 oldF = resolve.resolve("old-" + subpath.getFileName());
                 newF = resolve.resolve("new-" + subpath.getFileName());
-                System.out.println(PROJECT_ROOT.relativize(newF));
-                System.out.println(PROJECT_ROOT.relativize(oldF));
+
+                if (isIdea) {
+                    System.out.println(PROJECT_ROOT.relativize(newF));
+                    System.out.println(PROJECT_ROOT.relativize(oldF));
+                }
 
                 Files.write(oldF, oldAST.getBytes());
                 Files.write(newF, newAST.getBytes());
@@ -606,7 +610,6 @@ public class PackageLoader {
         }
 
 
-        boolean isIdea = System.getProperty("org.gradle.test.worker") == null;
         if (!passed && !isIdea) {
             // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
 //            throw new RuntimeException(cmd);
