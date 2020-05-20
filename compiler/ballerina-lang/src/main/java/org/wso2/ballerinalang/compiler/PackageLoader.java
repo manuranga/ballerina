@@ -523,7 +523,6 @@ public class PackageLoader {
         boolean transformerError = false;
         String diff = null;
         try {
-
             BLangPackage packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
             String oldAST = TransformerHelper.generateJSONStr(packageNode);
             String newAST = TransformerHelper.generateJSONStr(packageNodeNew);
@@ -554,7 +553,7 @@ public class PackageLoader {
             exception = serializeError(e.getCause(), 6);
         } catch (Parser.TransformerError e) {
             transformerError = true;
-            exception = serializeError(e, Thread.currentThread().getStackTrace().length);
+            exception = serializeError(e.getCause(), Thread.currentThread().getStackTrace().length);
         } catch (Exception e) {
             exception = serializeError(e, Thread.currentThread().getStackTrace().length);
         }
