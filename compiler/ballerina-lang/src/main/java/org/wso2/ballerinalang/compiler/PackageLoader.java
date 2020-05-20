@@ -114,12 +114,13 @@ public class PackageLoader {
             new CompilerContext.Key<>();
     public static final int GOOGLE_SHEET_LIMIT = 50000;
     public static final String ELLIPSIS = "\n...\"";
+    public static final Path PROJECT_ROOT = Paths.get("/Users/manu/checkout/ballerina-lang/");
     private final RepoHierarchy repos;
     private final boolean offline;
     private final boolean testEnabled;
     private final boolean lockEnabled;
     private final boolean newParserEnabled;
-    private final Path TEST_BASE = Paths.get("/Users/manu/checkout/ballerina-lang/tests/jballerina-unit-test/src/test/resources/test-src");
+    private final Path TEST_BASE = PROJECT_ROOT.resolve("tests/jballerina-unit-test/src/test/resources/test-src");
 
     /**
      * Manifest of the current project.
@@ -511,6 +512,10 @@ public class PackageLoader {
 
     private BLangPackage parse(PackageID pkgId, PackageSource pkgSource) {
 
+        FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
+        Path path = compilerInput.getPath();
+        Path subpath = TEST_BASE.relativize(path.toAbsolutePath());
+
         BLangPackage packageNode = this.parser.parse(pkgSource, this.sourceDirectory.getPath());
         String exception = null;
         boolean timeout = false;
@@ -524,13 +529,20 @@ public class PackageLoader {
             String newAST = TransformerHelper.generateJSONStr(packageNodeNew);
 
             if (!oldAST.equals(newAST)) {
-                Path oldF = Files.createTempFile("", "");
-                Path newF = Files.createTempFile("", "");
+                Path oldF;
+                Path newF;
+                Path resolve = PROJECT_ROOT.getParent().resolve("ballerina-parser-tests").resolve(subpath.getParent());
+                Files.createDirectories(resolve);
+                oldF = resolve.resolve("old-" + subpath.getFileName());
+                newF = resolve.resolve("new-" + subpath.getFileName());
+                System.out.println(PROJECT_ROOT.relativize(newF));
+                System.out.println(PROJECT_ROOT.relativize(oldF));
+
                 Files.write(oldF, oldAST.getBytes());
                 Files.write(newF, newAST.getBytes());
                 diff = diff(oldF, newF);
-                Files.deleteIfExists(oldF);
-                Files.deleteIfExists(newF);
+            } else if (this.newParserEnabled) {
+                packageNode = packageNodeNew;
             }
 
         } catch (Parser.ParserTimeout e) {
@@ -546,13 +558,10 @@ public class PackageLoader {
             exception = serializeError(e, Thread.currentThread().getStackTrace().length);
         }
 
-
-        FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
-        Path path = compilerInput.getPath();
-        Path subpath = TEST_BASE.relativize(path.toAbsolutePath());
         String cmd = subpath + ", ";
 
         long timeInMs = parser.time / 1000000;
+        boolean passed = false;
         if (parser.bLangNodeTransformer.unImplNodes.size() > 0) {
             cmd += quote("un impl nodes in transformer") + ", ";
             cmd += timeInMs + ", ";
@@ -586,16 +595,22 @@ public class PackageLoader {
             cmd += quote("pass") + ", ";
             cmd += timeInMs + ", ";
             cmd += quote("");
+            passed = true;
         }
 
         cmd += "\n";
         try {
-            Files.write(Paths.get("/Users/manu/checkout/ballerina-lang/result.csv"),
-                        cmd.getBytes(), StandardOpenOption.APPEND);
+            Files.write(PROJECT_ROOT.resolve("result.csv"), cmd.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
 
+
+        boolean isIdea = System.getProperty("org.gradle.test.worker") == null;
+        if (!passed && !isIdea) {
+            // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
+//            throw new RuntimeException(cmd);
+        }
 
         packageNode.packageID = pkgId;
         // Set the same packageId to the testable node
