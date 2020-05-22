@@ -177,10 +177,10 @@ public class TransformerHelper {
         Diagnostic.DiagnosticPosition position = node.getPosition();
         if (position != null) {
             JsonObject positionJson = new JsonObject();
-            positionJson.addProperty("startColumn", position.getStartColumn());
-            positionJson.addProperty("startLine", position.getStartLine());
-            positionJson.addProperty("endColumn", position.getEndColumn());
-            positionJson.addProperty("endLine", position.getEndLine());
+//            positionJson.addProperty("startColumn", position.getStartColumn());
+//            positionJson.addProperty("startLine", position.getStartLine());
+//            positionJson.addProperty("endColumn", position.getEndColumn());
+//            positionJson.addProperty("endLine", position.getEndLine());
 //            nodeJson.add("position", positionJson);
         }
 
@@ -246,10 +246,8 @@ public class TransformerHelper {
             }
 
             if (node instanceof BLangIdentifier && "value".equals(jsonName)) {
-                String s = String.valueOf(prop);
-                if (s.startsWith("$lambda$") && Character.isDigit(s.charAt(8))) {
-                    prop = "$lambda$<n>";
-                }
+                prop = replaceGeneratedText(prop, "$lambda$");
+                prop = replaceGeneratedText(prop, "$anonType$");
             }
 
             /* Literal class - This class is escaped in backend to address cases like "ss\"" and 8.0 and null */
@@ -294,7 +292,7 @@ public class TransformerHelper {
                         if (node.getKind() == NodeKind.COMPILATION_UNIT) {
                             if (listPropItem instanceof BLangFunction
                                 && (((BLangFunction) listPropItem)).name.value.startsWith("$lambda$")) {
-                                continue;
+//                                continue;
                             }
                         }
                         listPropJson.add(generateJSON((Node) listPropItem));
@@ -340,6 +338,7 @@ public class TransformerHelper {
             } else if (prop instanceof NodeKind) {
                 String kindName = toUpperCaml(prop.toString());
                 nodeJson.addProperty(jsonName, kindName);
+                nodeJson.addProperty("className", node.getClass().getName());
             } else if (prop instanceof OperatorKind) {
                 nodeJson.addProperty(jsonName, prop.toString());
                 /* Generic classes */
@@ -363,6 +362,14 @@ public class TransformerHelper {
             }
         }
         return nodeJson;
+    }
+
+    private static Object replaceGeneratedText(Object prop, String l) {
+        String s = String.valueOf(prop);
+        if (s.startsWith(l) && Character.isDigit(s.charAt(l.length()))) {
+            prop = l + "n";
+        }
+        return prop;
     }
 
     private static String toUpperCaml(String toString) {
