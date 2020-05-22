@@ -66,10 +66,12 @@ import org.wso2.ballerinalang.compiler.util.diagnotic.BLangDiagnosticLogHelper;
 import org.wso2.ballerinalang.util.RepoUtils;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -514,36 +516,45 @@ public class PackageLoader {
 
         FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
         Path path = compilerInput.getPath();
+        Path diffDir = PROJECT_ROOT.getParent().resolve("ballerina-parser-tests");
         Path subpath = TEST_BASE.relativize(path.toAbsolutePath());
 
         BLangPackage packageNode = this.parser.parse(pkgSource, this.sourceDirectory.getPath());
+        Path oldF = calcPath(subpath, diffDir, "old");
+        boolean wroteOld = false;
+
+        Path newF = calcPath(subpath, diffDir, "new");
+        boolean wroteNew = false;
+
         String exception = null;
         boolean timeout = false;
         boolean parserError = false;
         boolean transformerError = false;
         String diff = null;
+        boolean hasDiff = false;
         boolean isIdea = System.getProperty("org.gradle.test.worker") == null;
+
         try {
-            BLangPackage packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
             String oldAST = TransformerHelper.generateJSONStr(packageNode);
+            writeJsonFile(oldAST, oldF);
+            wroteOld = true;
+
+            BLangPackage packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
             String newAST = TransformerHelper.generateJSONStr(packageNodeNew);
 
-            if (!oldAST.equals(newAST)) {
-                Path oldF;
-                Path newF;
-                Path resolve = PROJECT_ROOT.getParent().resolve("ballerina-parser-tests").resolve(subpath.getParent());
-                Files.createDirectories(resolve);
-                oldF = resolve.resolve("old-" + subpath.getFileName());
-                newF = resolve.resolve("new-" + subpath.getFileName());
+            hasDiff = !oldAST.equals(newAST);
 
+            if (hasDiff || isIdea) {
+                writeJsonFile(newAST, newF);
+                wroteNew = true;
+
+                diff = diff(newF, oldF);
                 if (isIdea) {
-                    System.out.println(PROJECT_ROOT.relativize(newF));
+                    System.out.print("meld ");
+                    System.out.print(PROJECT_ROOT.relativize(newF));
+                    System.out.print(" ");
                     System.out.println(PROJECT_ROOT.relativize(oldF));
                 }
-
-                Files.write(oldF, oldAST.getBytes());
-                Files.write(newF, newAST.getBytes());
-                diff = diff(oldF, newF);
             } else if (this.newParserEnabled) {
                 packageNode = packageNodeNew;
             }
@@ -560,6 +571,9 @@ public class PackageLoader {
         } catch (Exception e) {
             exception = serializeError(e, Thread.currentThread().getStackTrace().length);
         }
+
+        cleanIfNotWritten(wroteOld, oldF);
+        cleanIfNotWritten(wroteNew, newF);
 
         String cmd = subpath + ", ";
 
@@ -585,7 +599,7 @@ public class PackageLoader {
             cmd += quote("unknown error") + ", ";
             cmd += quote("n/a") + ", ";
             cmd += quote(exception);
-        } else if (diff != null) {
+        } else if (hasDiff) {
             cmd += quote("diff") + ", ";
             cmd += timeInMs + ", ";
             String diffQ = quote(diff);
@@ -609,16 +623,54 @@ public class PackageLoader {
         }
 
 
-        if (!passed && !isIdea) {
-            // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
+//        if (!passed) {
+//            // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
 //            throw new RuntimeException(cmd);
-        }
+//        } else {
+        // uncomment this section to create a class list of for testng.xml with passing tests.
+//            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+//            for (int i = stackTrace.length - 1; i >= 0; i--) {
+//                StackTraceElement stackTraceElement = stackTrace[i];
+//                if (stackTraceElement.toString().startsWith("org.ball")) {
+//                    String s = "<class name=\"" + stackTraceElement.getClassName() + "\"></class>\n";
+//                    try {
+//                        Files.write(PROJECT_ROOT.resolve("testng.txt"), s.getBytes(), StandardOpenOption.APPEND);
+//                    } catch (IOException ex) {
+//                        ex.printStackTrace();
+//                    }
+//                    break;
+//                }
+//            }
+//        }
 
         packageNode.packageID = pkgId;
         // Set the same packageId to the testable node
         packageNode.getTestablePkgs().forEach(testablePkg -> testablePkg.packageID = pkgId);
         this.packageCache.put(pkgId, packageNode);
         return packageNode;
+    }
+
+    private void cleanIfNotWritten(boolean wrote, Path f) {
+        if (!wrote) {
+            try {
+                new PrintWriter(f.toFile()).close();
+            } catch (FileNotFoundException e) {
+
+            }
+        }
+    }
+
+    private void writeJsonFile(String oldAST, Path oldF) throws IOException {
+        Files.write(oldF, oldAST.getBytes());
+    }
+
+    private Path calcPath(Path subpath, Path diffDir, String old) {
+        Path oldD = diffDir.resolve(old).resolve(subpath.getParent());
+        try {
+            Files.createDirectories(oldD);
+        } catch (IOException e) {
+        }
+        return oldD.resolve(subpath.getFileName());
     }
 
     private String diff(Path oldF, Path newF) {
