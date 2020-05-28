@@ -128,5 +128,10 @@ public class CompileResult {
             Collections.sort(diagnostics);
             return diagnostics;
         }
+
+        @Override
+        public String toString() {
+            return diagnostics.toString();
+        }
     }
 }

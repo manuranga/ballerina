@@ -518,11 +518,9 @@ public class PackageLoader {
 
     private BLangPackage parse(PackageID pkgId, PackageSource pkgSource) {
         BLangPackage packageNode = this.parser.parse(pkgSource, this.sourceDirectory.getPath());
-        if (this.dlog.getErrorCount() == 0) {
-            BLangPackage newPackageNode = tryNewAndReport(pkgSource, packageNode);
-            if (newPackageNode != null) {
-                packageNode = newPackageNode;
-            }
+        BLangPackage newPackageNode = tryNewAndReport(pkgSource, packageNode);
+        if (newPackageNode != null) {
+            packageNode = newPackageNode;
         }
 
         packageNode.packageID = pkgId;
@@ -546,6 +544,11 @@ public class PackageLoader {
             return null;
         }
         Path subpath = TEST_BASE.relativize(path);
+
+        if (this.dlog.getErrorCount() != 0) {
+            reportToCSV(subpath, true, null, false, false, false, null, false);
+            return null;
+        }
 
         Path oldF = calcPath(subpath, diffDir, "old");
         boolean wroteOld = false;
@@ -596,13 +599,28 @@ public class PackageLoader {
         cleanIfNotWritten(wroteOld, oldF);
         cleanIfNotWritten(wroteNew, newF);
 
+        reportToCSV(subpath, false, exception, timeout, parserError, transformerError, diff, hasDiff);
+
+        if (this.newParserEnabled) {
+            return packageNodeNew;
+        }
+        return null;
+    }
+
+    private void reportToCSV(Path subpath, boolean invalid, String exception, boolean timeout, boolean parserError,
+                             boolean transformerError, String diff, boolean hasDiff) {
         String cmd = subpath + ", ";
 
-        long timeInMs = parser.time / 1000000;
+
+        String timeInMs = (parser.time < 0 ? quote("n/a") : parser.time / 1000000) + ", ";
         boolean passed = false;
-        if (parser.bLangCompUnitGen != null && parser.bLangCompUnitGen.unImplNodes.size() > 0) {
+        if (invalid) {
+            cmd += quote("invalid (skipped)") + ", ";
+            cmd += timeInMs;
+            cmd += quote(this.dlog.getCurrentLog().listener.toString());
+        } else if (parser.bLangCompUnitGen != null && parser.bLangCompUnitGen.unImplNodes.size() > 0) {
             cmd += quote("un impl nodes in transformer") + ", ";
-            cmd += timeInMs + ", ";
+            cmd += timeInMs;
             cmd += quote(String.join("\n", parser.bLangCompUnitGen.unImplNodes));
         } else if (parserError) {
             cmd += quote("parser error") + ", ";
@@ -614,7 +632,7 @@ public class PackageLoader {
             cmd += quote(exception);
         } else if (transformerError) {
             cmd += quote("transformer error") + ", ";
-            cmd += timeInMs + ", ";
+            cmd += timeInMs;
             cmd += quote(exception);
         } else if (exception != null) {
             cmd += quote("unknown error") + ", ";
@@ -622,7 +640,7 @@ public class PackageLoader {
             cmd += quote(exception);
         } else if (hasDiff) {
             cmd += quote("diff") + ", ";
-            cmd += timeInMs + ", ";
+            cmd += timeInMs;
             String diffQ = quote(diff);
             if (diffQ.length() > GOOGLE_SHEET_LIMIT) {
                 diffQ = diffQ.substring(0, GOOGLE_SHEET_LIMIT - ELLIPSIS.length());
@@ -631,7 +649,7 @@ public class PackageLoader {
             cmd += diffQ;
         } else {
             cmd += quote("pass") + ", ";
-            cmd += timeInMs + ", ";
+            cmd += timeInMs;
             cmd += quote("");
             passed = true;
         }
@@ -647,15 +665,10 @@ public class PackageLoader {
         }
 
 
-        if (!passed) {
+        if (!passed && !invalid) {
             // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
             throw new RuntimeException(cmd);
         }
-
-        if (this.newParserEnabled) {
-            return packageNodeNew;
-        }
-        return null;
     }
 
     private void createMapping(Path subpath) throws IOException {

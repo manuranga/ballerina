@@ -71,7 +71,7 @@ public class Parser {
     private ParserCache parserCache;
     private NodeCloner nodeCloner;
     public BLangNodeTransformer bLangCompUnitGen;
-    public long time;
+    public long time = -1;
 
     public static Parser getInstance(CompilerContext context) {
         Parser parser = context.get(PARSER_KEY);
