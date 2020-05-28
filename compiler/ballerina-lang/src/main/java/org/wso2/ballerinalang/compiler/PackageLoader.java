@@ -117,12 +117,16 @@ public class PackageLoader {
     public static final int GOOGLE_SHEET_LIMIT = 50000;
     public static final String ELLIPSIS = "\n...\"";
     public static final Path PROJECT_ROOT = Paths.get("/Users/manu/checkout/ballerina-lang/");
+    public static final Path CSV = PROJECT_ROOT.resolve("result.csv");
+    public static final Path MAPPINGS = PROJECT_ROOT.resolve("test-class-to-bal.csv");
     private final RepoHierarchy repos;
     private final boolean offline;
     private final boolean testEnabled;
     private final boolean lockEnabled;
     private final boolean newParserEnabled;
-    private final Path TEST_BASE = PROJECT_ROOT.resolve("tests/jballerina-unit-test/src/test/resources/test-src");
+    private final Path TEST_BASE = PROJECT_ROOT.resolve("tests/jballerina-unit-test/src/test/resources/test-src")
+                                               .toAbsolutePath()
+                                               .normalize();
 
     /**
      * Manifest of the current project.
@@ -513,13 +517,36 @@ public class PackageLoader {
     }
 
     private BLangPackage parse(PackageID pkgId, PackageSource pkgSource) {
-
-        FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
-        Path path = compilerInput.getPath();
-        Path diffDir = PROJECT_ROOT.getParent().resolve("ballerina-parser-tests");
-        Path subpath = TEST_BASE.relativize(path.toAbsolutePath());
-
         BLangPackage packageNode = this.parser.parse(pkgSource, this.sourceDirectory.getPath());
+        if (this.dlog.getErrorCount() == 0) {
+            BLangPackage newPackageNode = tryNewAndReport(pkgSource, packageNode);
+            if (newPackageNode != null) {
+                packageNode = newPackageNode;
+            }
+        }
+
+        packageNode.packageID = pkgId;
+        // Set the same packageId to the testable node
+        packageNode.getTestablePkgs().forEach(testablePkg -> testablePkg.packageID = pkgId);
+        this.packageCache.put(pkgId, packageNode);
+        return packageNode;
+    }
+
+    private BLangPackage tryNewAndReport(PackageSource pkgSource, BLangPackage oldParserOutput) {
+        BLangPackage packageNodeNew = null;
+        FileSystemSourceInput compilerInput = (FileSystemSourceInput) pkgSource.getPackageSourceEntries().get(0);
+        Path path = compilerInput.getPath().toAbsolutePath();
+        Path diffDir = PROJECT_ROOT.getParent().resolve("ballerina-parser-tests");
+
+        // Uncomment to create a text file containing bal file name to test class mapping
+        //        createMapping(subpath);
+
+        if (!path.normalize().startsWith(TEST_BASE)) {
+            // not a test file
+            return null;
+        }
+        Path subpath = TEST_BASE.relativize(path);
+
         Path oldF = calcPath(subpath, diffDir, "old");
         boolean wroteOld = false;
 
@@ -532,32 +559,25 @@ public class PackageLoader {
         boolean transformerError = false;
         String diff = null;
         boolean hasDiff = false;
-        boolean isIdea = System.getProperty("org.gradle.test.worker") == null;
 
         try {
-            String oldAST = TransformerHelper.generateJSONStr(packageNode);
+            String oldAST = TransformerHelper.generateJSONStr(oldParserOutput);
             writeJsonFile(oldAST, oldF);
             wroteOld = true;
 
-            BLangPackage packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
+            packageNodeNew = this.parser.parseNew(pkgSource, this.sourceDirectory.getPath());
             String newAST = TransformerHelper.generateJSONStr(packageNodeNew);
 
             hasDiff = !oldAST.equals(newAST);
 
-            if (hasDiff || isIdea) {
-                writeJsonFile(newAST, newF);
-                wroteNew = true;
+            writeJsonFile(newAST, newF);
+            wroteNew = true;
 
-                diff = diff(newF, oldF);
-                if (isIdea) {
-                    System.out.print("meld ");
-                    System.out.print(PROJECT_ROOT.relativize(newF));
-                    System.out.print(" ");
-                    System.out.println(PROJECT_ROOT.relativize(oldF));
-                }
-            } else if (this.newParserEnabled) {
-                packageNode = packageNodeNew;
-            }
+            diff = diff(newF, oldF);
+            System.out.print("meld ");
+            System.out.print(PROJECT_ROOT.relativize(newF));
+            System.out.print(" ");
+            System.out.println(PROJECT_ROOT.relativize(oldF));
 
         } catch (Parser.ParserTimeout e) {
             timeout = true;
@@ -579,7 +599,7 @@ public class PackageLoader {
 
         long timeInMs = parser.time / 1000000;
         boolean passed = false;
-        if (parser.bLangNodeTransformer.unImplNodes.size() > 0) {
+        if (parser.bLangNodeTransformer != null && parser.bLangNodeTransformer.unImplNodes.size() > 0) {
             cmd += quote("un impl nodes in transformer") + ", ";
             cmd += timeInMs + ", ";
             cmd += quote(String.join("\n", parser.bLangNodeTransformer.unImplNodes));
@@ -617,37 +637,40 @@ public class PackageLoader {
 
         cmd += "\n";
         try {
-            Files.write(PROJECT_ROOT.resolve("result.csv"), cmd.getBytes(), StandardOpenOption.APPEND);
+            if (Files.notExists(CSV)) {
+                Files.createFile(CSV);
+            }
+            Files.write(CSV, cmd.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
 
 
-//        if (!passed) {
-//            // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
-//            throw new RuntimeException(cmd);
-//        } else {
-        // uncomment this section to create a class list of for testng.xml with passing tests.
-//            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-//            for (int i = stackTrace.length - 1; i >= 0; i--) {
-//                StackTraceElement stackTraceElement = stackTrace[i];
-//                if (stackTraceElement.toString().startsWith("org.ball")) {
-//                    String s = "<class name=\"" + stackTraceElement.getClassName() + "\"></class>\n";
-//                    try {
-//                        Files.write(PROJECT_ROOT.resolve("testng.txt"), s.getBytes(), StandardOpenOption.APPEND);
-//                    } catch (IOException ex) {
-//                        ex.printStackTrace();
-//                    }
-//                    break;
-//                }
-//            }
-//        }
+        if (!passed) {
+            // uncomment this before pr to make sure we not getting lucky and passing tests even with wrong tree
+            throw new RuntimeException(cmd);
+        }
 
-        packageNode.packageID = pkgId;
-        // Set the same packageId to the testable node
-        packageNode.getTestablePkgs().forEach(testablePkg -> testablePkg.packageID = pkgId);
-        this.packageCache.put(pkgId, packageNode);
-        return packageNode;
+        if (this.newParserEnabled) {
+            return packageNodeNew;
+        }
+        return null;
+    }
+
+    private void createMapping(Path subpath) throws IOException {
+        if (!Files.exists(MAPPINGS)) {
+            Files.createFile(MAPPINGS);
+        }
+
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        for (int i = stackTrace.length - 1; i >= 0; i--) {
+            StackTraceElement stackTraceElement = stackTrace[i];
+            if (stackTraceElement.toString().startsWith("org.ballerinalang")) {
+                String s = subpath.toString() + " , " + stackTraceElement.getClassName() + "\n";
+                Files.write(MAPPINGS, s.getBytes(), StandardOpenOption.APPEND);
+                break;
+            }
+        }
     }
 
     private void cleanIfNotWritten(boolean wrote, Path f) {
