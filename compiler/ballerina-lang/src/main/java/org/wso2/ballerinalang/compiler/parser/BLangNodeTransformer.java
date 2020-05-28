@@ -352,6 +352,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
 
     private BLangCompilationUnit currentCompilationUnit;
     private static final Pattern UNICODE_PATTERN = Pattern.compile(Constants.UNICODE_REGEX);
+    public Set<String> unImplNodes = new TreeSet<>();
     private BLangAnonymousModelHelper anonymousModelHelper;
     private BLangMissingNodesHelper missingNodesHelper;
 

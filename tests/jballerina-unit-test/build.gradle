@@ -104,7 +104,7 @@ test {
     systemProperty "enableJBallerinaTests", "true"
 
     doFirst {
-        java.nio.file.Path path = Paths.get("/Users/manu/checkout/ballerina-lang/result.csv");
+        java.nio.file.Path path = Paths.get("$buildDir/../../result.csv");
         try {
             Files.deleteIfExists(path);
             Files.createFile(path);

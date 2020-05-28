@@ -30,7 +30,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Test Cases for defining variable.
@@ -41,6 +43,7 @@ public class ParserQuickTest {
     private final Path TEST_BASE = PROJECT_ROOT.resolve("tests/jballerina-unit-test/src/test/resources");
     public static final Path FAILING = PROJECT_ROOT.resolve("failing-before.txt");
     public static final Path PASSING = PROJECT_ROOT.resolve("passing-with-change.txt");
+    public static final Path MAPPING = PROJECT_ROOT.resolve("test-class-to-bal.csv");
     private List<String> failing;
 
     @BeforeClass
@@ -63,7 +66,39 @@ public class ParserQuickTest {
         BCompileUtil.compile(soruce);
     }
 
-    @Test(dataProvider = "balFiles")
+    //    @Test
+    public void genTestNg() throws IOException {
+        LineIterator mappingFile = FileUtils.lineIterator(MAPPING.toFile(), "UTF-8");
+        Map<String, String> mapping = new HashMap<>();
+        while (mappingFile.hasNext()) {
+            String line = mappingFile.nextLine();
+            String[] split = line.split(",");
+            mapping.put(split[0].trim(), split[1].trim());
+        }
+
+        LineIterator passingFile = FileUtils.lineIterator(PASSING.toFile(), "UTF-8");
+
+        while (passingFile.hasNext()) {
+            String line = passingFile.nextLine();
+            String s = mapping.get(line.substring(9));
+            if (s != null) {
+                System.out.println("<class name=\"" + s + "\"></class>");
+            }
+        }
+    }
+
+    //    @Test
+    public void cleanFiles() throws IOException {
+        if (!Files.exists(PASSING)) {
+            Files.delete(PASSING);
+        }
+
+        if (!Files.exists(FAILING)) {
+            Files.delete(FAILING);
+        }
+    }
+
+    //    @Test(dataProvider = "balFiles")
     public void withMyChanges(String soruce) throws IOException {
         BCompileUtil.compile(soruce);
 
@@ -76,7 +111,7 @@ public class ParserQuickTest {
     }
 
 
-    @Test(dataProvider = "balFiles")
+    //    @Test(dataProvider = "balFiles")
     public void withoutMyChanges(String soruce) throws IOException {
         byte[] bytes = (soruce + "\n").getBytes();
 
@@ -90,10 +125,6 @@ public class ParserQuickTest {
 
     @DataProvider(name = "balFiles")
     public Object[][] balFiles() throws Exception {
-        boolean isIdea = System.getProperty("org.gradle.test.worker") == null;
-        if (!isIdea) {
-            return new Object[][]{};
-        }
         List<Object[]> paramList = new ArrayList<>();
         String balFileList = "all-ordered.txt";
         LineIterator it = FileUtils.lineIterator(PROJECT_ROOT.resolve(balFileList).toFile(), "UTF-8");
