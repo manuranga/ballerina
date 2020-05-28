@@ -127,6 +127,7 @@ public class ParserQuickTest {
     public Object[][] balFiles() throws Exception {
         List<Object[]> paramList = new ArrayList<>();
         String balFileList = "all-ordered.txt";
+//        String balFileList = "ordered-extra.txt";
         LineIterator it = FileUtils.lineIterator(PROJECT_ROOT.resolve(balFileList).toFile(), "UTF-8");
         while (it.hasNext()) {
             String line = it.nextLine();
