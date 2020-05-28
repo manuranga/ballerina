@@ -49,7 +49,7 @@ public class BLangDiagnosticLog implements DiagnosticLog {
 
     public int errorCount = 0;
 
-    protected DiagnosticListener listener;
+    public DiagnosticListener listener;
     private PackageCache pkgCache;
 
     // TODO: 3/6/20 Make package private.

@@ -242,7 +242,7 @@ public class TransformerHelper {
             try {
                 prop = m.invoke(node);
             } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Error occurred while generating JSON", e);
+                prop = "<error>";
             }
 
             if (node instanceof BLangIdentifier && "value".equals(jsonName)) {
