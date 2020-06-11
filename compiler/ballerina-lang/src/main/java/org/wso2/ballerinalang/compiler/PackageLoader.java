@@ -545,16 +545,21 @@ public class PackageLoader {
         }
         Path subpath = TEST_BASE.relativize(path);
 
-        if (this.dlog.getErrorCount() != 0) {
-            reportToCSV(subpath, true, null, false, false, false, null, false);
-            return null;
-        }
-
         Path oldF = calcPath(subpath, diffDir, "old");
         boolean wroteOld = false;
 
         Path newF = calcPath(subpath, diffDir, "new");
         boolean wroteNew = false;
+
+        if (this.dlog.getErrorCount() != 0) {
+            reportToCSV(subpath, true, null, false, false, false, null, false);
+            cleanIfNotWritten(false, oldF);
+            cleanIfNotWritten(false, newF);
+            PrintStream out = System.out;
+            out.println("invalid");
+            return null;
+        }
+
 
         String exception = null;
         boolean timeout = false;
