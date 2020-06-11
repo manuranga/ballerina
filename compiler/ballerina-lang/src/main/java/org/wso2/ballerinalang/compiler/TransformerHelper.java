@@ -248,6 +248,7 @@ public class TransformerHelper {
             if (node instanceof BLangIdentifier && "value".equals(jsonName)) {
                 prop = replaceGeneratedText(prop, "$lambda$");
                 prop = replaceGeneratedText(prop, "$anonType$");
+                prop = prop.toString().replaceFirst("\\$\\$service\\$\\d+$", "");
             }
 
             /* Literal class - This class is escaped in backend to address cases like "ss\"" and 8.0 and null */
