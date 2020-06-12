@@ -177,10 +177,9 @@ public class TransformerHelper {
         Diagnostic.DiagnosticPosition position = node.getPosition();
         if (position != null) {
             JsonObject positionJson = new JsonObject();
-//            positionJson.addProperty("startColumn", position.getStartColumn());
-//            positionJson.addProperty("startLine", position.getStartLine());
-//            positionJson.addProperty("endColumn", position.getEndColumn());
-//            positionJson.addProperty("endLine", position.getEndLine());
+//            positionJson.addProperty("pos", position.getStartLine() + ":" + position.getStartColumn() + "-" +
+//                                            position.getEndLine() + ":" + position.getEndColumn());
+//            positionJson.addProperty("className", node.getClass().getName());
 //            nodeJson.add("position", positionJson);
         }
 
