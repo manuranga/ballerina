@@ -47,7 +47,7 @@ public class BLangDiagnosticLogHelper implements DiagnosticLog {
         return dLogHelper;
     }
 
-    private BLangDiagnosticLogHelper(CompilerContext context) {
+    public BLangDiagnosticLogHelper(CompilerContext context) {
         context.put(DIAGNOSTIC_LOG_HELPER_KEY, this);
 
         this.consoleDLog = BLangDiagnosticLog.getInstance(context);

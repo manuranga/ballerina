@@ -49,6 +49,11 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * This class is responsible for parsing Ballerina source files.
@@ -64,6 +69,7 @@ public class Parser {
     private PackageCache pkgCache;
     private ParserCache parserCache;
     private NodeCloner nodeCloner;
+    public BLangNodeTransformer bLangNodeTransformer;
 
     public static Parser getInstance(CompilerContext context) {
         Parser parser = context.get(PARSER_KEY);
@@ -116,7 +122,13 @@ public class Parser {
                                                            BDiagnosticSource diagnosticSource) {
         String entryName = sourceEntry.getEntryName();
         BLangCompilationUnit compilationUnit;
-        SyntaxTree tree = sourceEntry.getTree();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        SyntaxTree tree;
+        try {
+            tree = executor.submit(sourceEntry::getTree).get(2, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
         //TODO: Get hash and length from tree
         byte[] code = sourceEntry.getCode();
         int hash = getHash(code);
@@ -127,7 +139,7 @@ public class Parser {
             return compilationUnit;
         }
 
-        BLangNodeTransformer bLangNodeTransformer = new BLangNodeTransformer(this.context, diagnosticSource);
+        bLangNodeTransformer = new BLangNodeTransformer(this.context, diagnosticSource);
         compilationUnit = (BLangCompilationUnit) bLangNodeTransformer.accept(tree.rootNode()).get(0);
         parserCache.put(packageID, entryName, hash, length, compilationUnit);
         // Node cloner will run for valid ASTs.
