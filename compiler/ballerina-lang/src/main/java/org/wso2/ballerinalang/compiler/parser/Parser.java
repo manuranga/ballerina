@@ -127,12 +127,12 @@ public class Parser {
         SyntaxTree tree;
         try {
             long start = System.nanoTime();
-            tree = executor.submit(sourceEntry::getTree).get(2, TimeUnit.SECONDS);
+            tree = executor.submit(sourceEntry::getTree).get(60, TimeUnit.SECONDS);
             time = System.nanoTime() - start;
         } catch (ExecutionException e) {
             throw new ParserError(e.getCause());
         } catch (TimeoutException e) {
-            throw new ParserTimeout(e);
+            throw new ParserTimeout(e.getCause());
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
