@@ -70,6 +70,7 @@ public class Parser {
     private ParserCache parserCache;
     private NodeCloner nodeCloner;
     public BLangNodeTransformer bLangNodeTransformer;
+    public long time;
 
     public static Parser getInstance(CompilerContext context) {
         Parser parser = context.get(PARSER_KEY);
@@ -125,8 +126,14 @@ public class Parser {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         SyntaxTree tree;
         try {
+            long start = System.nanoTime();
             tree = executor.submit(sourceEntry::getTree).get(2, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            time = System.nanoTime() - start;
+        } catch (ExecutionException e) {
+            throw new ParserError(e.getCause());
+        } catch (TimeoutException e) {
+            throw new ParserTimeout(e);
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
         //TODO: Get hash and length from tree
@@ -140,12 +147,34 @@ public class Parser {
         }
 
         bLangNodeTransformer = new BLangNodeTransformer(this.context, diagnosticSource);
-        compilationUnit = (BLangCompilationUnit) bLangNodeTransformer.accept(tree.rootNode()).get(0);
+        try {
+            compilationUnit = (BLangCompilationUnit) bLangNodeTransformer.accept(tree.rootNode()).get(0);
+        } catch (Throwable e) {
+            throw new TransformerError(e);
+        }
         parserCache.put(packageID, entryName, hash, length, compilationUnit);
         // Node cloner will run for valid ASTs.
         // This will verify, any modification done to the AST will get handled properly.
         compilationUnit = nodeCloner.cloneCUnit(compilationUnit);
         return compilationUnit;
+    }
+
+    public class ParserTimeout extends RuntimeException {
+        public ParserTimeout(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    public class ParserError extends RuntimeException {
+        public ParserError(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    public class TransformerError extends RuntimeException {
+        public TransformerError(Throwable cause) {
+            super(cause);
+        }
     }
 
     public BLangPackage parse(PackageSource pkgSource, Path sourceRootPath) {
